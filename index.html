@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pet Path Tycoon</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+    canvas { display: block; }
+    #hud {
+      position: absolute; top: 12px; left: 12px; right: 12px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      pointer-events: none; gap: 10px; z-index: 5;
+    }
+    .panel {
+      background: rgba(15, 15, 30, 0.82); color: #fff;
+      padding: 10px 14px; border-radius: 14px;
+      backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.12);
+      pointer-events: auto;
+    }
+    #moneyBox { min-width: 150px; }
+    #moneyBox .label, #ownedBox .label, #accountBox .label { font-size: 11px; opacity: 0.7; }
+    #moneyVal { font-size: 24px; font-weight: 800; color: #ffd54f; }
+    #incomeVal { font-size: 12px; color: #81c784; margin-top: 1px; }
+    #ownedBox { text-align: center; }
+    #ownedVal { font-size: 18px; font-weight: 700; }
+    #accountBox { text-align: right; min-width: 130px; }
+    #accountName { font-size: 14px; font-weight: 700; color: #90caf9; }
+    #controls {
+      position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 8px; pointer-events: auto; z-index: 5; flex-wrap: wrap; justify-content: center;
+    }
+    .btn {
+      background: linear-gradient(180deg, #5c6bc0, #3949ab);
+      color: #fff; border: none; padding: 11px 18px; border-radius: 28px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 4px 12px rgba(57,73,171,0.4);
+      transition: transform 0.12s, filter 0.12s;
+    }
+    .btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .btn:active { transform: translateY(1px); }
+    .btn.shop { background: linear-gradient(180deg, #66bb6a, #43a047); box-shadow: 0 4px 12px rgba(67,160,71,0.4); }
+    .btn.account { background: linear-gradient(180deg, #42a5f5, #1e88e5); }
+    .btn.close { background: linear-gradient(180deg, #ef5350, #c62828); }
+    .btn.secondary { background: linear-gradient(180deg, #78909c, #546e7a); }
+    #shopOverlay, #authOverlay, #saveOverlay {
+      position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+      display: none; justify-content: center; align-items: center;
+      pointer-events: auto; z-index: 30;
+    }
+    #shopOverlay.open, #authOverlay.open, #saveOverlay.open { display: flex; }
+    #shopPanel, #authPanel, #savePanel {
+      background: #1a1a2e; width: min(920px, 96vw); max-height: 88vh;
+      border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
+      border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+    }
+    #authPanel, #savePanel { width: min(420px, 94vw); max-height: none; }
+    #shopHeader, #authHeader, #saveHeader {
+      padding: 14px 18px; background: #16213e; display: flex;
+      justify-content: space-between; align-items: center;
+    }
+    #shopHeader h2, #authHeader h2, #saveHeader h2 { font-size: 18px; color: #fff; }
+    #shopTabs { display: flex; gap: 5px; flex-wrap: wrap; padding: 8px 14px; background: #0f0f1a; }
+    .tab {
+      padding: 5px 11px; border-radius: 18px; font-size: 11px; font-weight: 700;
+      cursor: pointer; border: 1px solid transparent; color: #aaa;
+    }
+    .tab.active { background: #3949ab; color: #fff; border-color: #5c6bc0; }
+    #shopList {
+      flex: 1; overflow-y: auto; padding: 10px 14px 16px;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(185px, 1fr)); gap: 10px;
+    }
+    .petCard {
+      background: #22223b; border-radius: 11px; padding: 10px;
+      border: 2px solid transparent; transition: border-color 0.15s, transform 0.12s;
+    }
+    .petCard:hover { transform: translateY(-2px); }
+    .petCard.owned { border-color: #43a047; }
+    .petCard .rarity { font-size: 9px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; margin-bottom: 3px; }
+    .petCard .name { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .petCard .stats { font-size: 11px; color: #bbb; line-height: 1.35; }
+    .petCard .buyBtn {
+      margin-top: 8px; width: 100%; padding: 7px; border: none; border-radius: 7px;
+      font-weight: 700; font-size: 12px; cursor: pointer; color: #fff; background: #43a047;
+    }
+    .petCard .buyBtn:disabled { background: #555; cursor: not-allowed; opacity: 0.7; }
+    .petCard .buyBtn.owned { background: #1b5e20; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; }
+    .form-group input {
+      width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #333;
+      background: #0f0f1a; color: #fff; font-size: 14px; outline: none;
+    }
+    .form-group input:focus { border-color: #5c6bc0; }
+    .auth-btns { display: flex; gap: 8px; margin-top: 6px; }
+    .auth-btns .btn { flex: 1; text-align: center; }
+    .auth-note { font-size: 11px; color: #888; margin-top: 10px; line-height: 1.4; }
+    #toast {
+      position: absolute; top: 78px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.88); color: #fff; padding: 9px 18px;
+      border-radius: 10px; font-weight: 600; font-size: 13px;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 40;
+      max-width: 90vw; text-align: center;
+    }
+    #toast.show { opacity: 1; }
+    #hint {
+      position: absolute; bottom: 68px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.45); color: #eee; padding: 5px 12px;
+      border-radius: 14px; font-size: 11px; pointer-events: none; z-index: 5;
+    }
+    #saveCodeArea {
+      width: 100%; height: 90px; background: #0f0f1a; color: #81c784;
+      border: 1px solid #333; border-radius: 8px; padding: 8px; font-size: 11px;
+      font-family: monospace; resize: none; margin-top: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div class="panel" id="moneyBox">
+      <div class="label">MONEY</div>
+      <div id="moneyVal">$25</div>
+      <div id="incomeVal">+$0 /s</div>
+    </div>
+    <div class="panel" id="ownedBox">
+      <div class="label">PETS OWNED</div>
+      <div id="ownedVal">0 / 94</div>
+    </div>
+    <div class="panel" id="accountBox">
+      <div class="label">ACCOUNT</div>
+      <div id="accountName">Guest</div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <button class="btn shop" id="shopBtn">🛒 Shop</button>
+    <button class="btn account" id="accountBtn">👤 Account</button>
+    <button class="btn secondary" id="saveBtn">💾 Save Code</button>
+  </div>
+  <div id="hint">WASD / Arrows to walk • Pets walk the red path & earn money</div>
+  <div id="toast"></div>
+
+  <div id="shopOverlay">
+    <div id="shopPanel">
+      <div id="shopHeader">
+        <h2>🐾 Pet Shop (94 Pets)</h2>
+        <button class="btn close" id="closeShop">Close</button>
+      </div>
+      <div id="shopTabs"></div>
+      <div id="shopList"></div>
+    </div>
+  </div>
+
+  <div id="authOverlay">
+    <div id="authPanel">
+      <div id="authHeader">
+        <h2 id="authTitle">Sign In / Create Account</h2>
+        <button class="btn close" id="closeAuth">Close</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="authUser" placeholder="coolplayer123" maxlength="24" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="authPass" placeholder="••••••••" maxlength="32" autocomplete="current-password">
+        </div>
+        <div class="form-group">
+          <label>Email (optional – extra security / recovery)</label>
+          <input type="email" id="authEmail" placeholder="you@email.com" maxlength="60" autocomplete="email">
+        </div>
+        <div class="auth-btns">
+          <button class="btn" id="signInBtn">Sign In</button>
+          <button class="btn shop" id="signUpBtn">Create Account</button>
+        </div>
+        <button class="btn secondary" id="signOutBtn" style="width:100%;margin-top:10px;display:none;">Sign Out</button>
+        <p class="auth-note">
+          Progress is saved to this browser under your account.<br>
+          Use the <b>Save Code</b> button to transfer your progress to any other device.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div id="saveOverlay">
+    <div id="savePanel">
+      <div id="saveHeader">
+        <h2>💾 Transfer Save</h2>
+        <button class="btn close" id="closeSave">Close</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <p style="font-size:13px;color:#ccc;margin-bottom:8px;">Copy this code and paste it on another device to continue your progress:</p>
+        <textarea id="saveCodeArea" readonly></textarea>
+        <div class="auth-btns" style="margin-top:10px;">
+          <button class="btn" id="copySaveBtn">Copy Code</button>
+          <button class="btn secondary" id="loadSaveBtn">Load Code</button>
+        </div>
+        <div class="form-group" style="margin-top:14px;">
+          <label>Paste a save code here to load</label>
+          <input type="text" id="loadCodeInput" placeholder="Paste save code…">
+        </div>
+        <p class="auth-note">Tip: Sign in first so the loaded progress is tied to your account.</p>
+      </div>
+    </div>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+
+    const RARITIES = {
+      Common:    { color: '#9e9e9e', order: 0 },
+      Uncommon:  { color: '#66bb6a', order: 1 },
+      Rare:      { color: '#42a5f5', order: 2 },
+      Epic:      { color: '#ab47bc', order: 3 },
+      Legendary: { color: '#ffa726', order: 4 },
+      Mythic:    { color: '#ef5350', order: 5 },
+      Secret:    { color: '#ec407a', order: 6 },
+      Diamond:   { color: '#80deea', order: 7 },
+      Celestial: { color: '#e040fb', order: 8 },
+      Omega:     { color: '#ffd700', order: 9 }
+    };
+
+    const PET_DATA = [
+      { id:0,  name:'Grass Pup',      rarity:'Common',    basePrice:25,     baseIncome:1.2,  color:0x8bc34a, shape:'dog' },
+      { id:1,  name:'Meadow Kitten',  rarity:'Common',    basePrice:30,     baseIncome:1.4,  color:0xffcc80, shape:'cat' },
+      { id:2,  name:'Pebble Bunny',   rarity:'Common',    basePrice:35,     baseIncome:1.5,  color:0xe0e0e0, shape:'bunny' },
+      { id:3,  name:'Sunny Chick',    rarity:'Common',    basePrice:40,     baseIncome:1.6,  color:0xfff176, shape:'bird' },
+      { id:4,  name:'Mud Frog',       rarity:'Common',    basePrice:45,     baseIncome:1.8,  color:0x81c784, shape:'frog' },
+      { id:5,  name:'Cotton Mouse',   rarity:'Common',    basePrice:50,     baseIncome:2.0,  color:0xb0bec5, shape:'mouse' },
+      { id:6,  name:'Clover Cow',     rarity:'Common',    basePrice:55,     baseIncome:2.2,  color:0xffffff, shape:'cow' },
+      { id:7,  name:'Dusty Pig',      rarity:'Common',    basePrice:60,     baseIncome:2.4,  color:0xf8bbd0, shape:'pig' },
+      { id:8,  name:'Puddle Duck',    rarity:'Common',    basePrice:65,     baseIncome:2.6,  color:0xffecb3, shape:'bird' },
+      { id:9,  name:'Twig Squirrel',  rarity:'Common',    basePrice:70,     baseIncome:2.8,  color:0xa1887f, shape:'squirrel' },
+      { id:10, name:'Daisy Sheep',    rarity:'Common',    basePrice:75,     baseIncome:3.0,  color:0xf5f5f5, shape:'sheep' },
+      { id:11, name:'Rusty Crab',     rarity:'Common',    basePrice:80,     baseIncome:3.2,  color:0xff8a65, shape:'crab' },
+      { id:12, name:'Forest Fox',     rarity:'Uncommon',  basePrice:140,    baseIncome:5.0,  color:0xff8a65, shape:'fox' },
+      { id:13, name:'River Otter',    rarity:'Uncommon',  basePrice:160,    baseIncome:5.5,  color:0x90a4ae, shape:'otter' },
+      { id:14, name:'Amber Deer',     rarity:'Uncommon',  basePrice:180,    baseIncome:6.0,  color:0xffb74d, shape:'deer' },
+      { id:15, name:'Sky Swallow',    rarity:'Uncommon',  basePrice:200,    baseIncome:6.5,  color:0x4fc3f7, shape:'bird' },
+      { id:16, name:'Moss Turtle',    rarity:'Uncommon',  basePrice:220,    baseIncome:7.0,  color:0x689f38, shape:'turtle' },
+      { id:17, name:'Honey Bee',      rarity:'Uncommon',  basePrice:240,    baseIncome:7.5,  color:0xffee58, shape:'bee' },
+      { id:18, name:'Pine Raccoon',   rarity:'Uncommon',  basePrice:260,    baseIncome:8.0,  color:0x78909c, shape:'raccoon' },
+      { id:19, name:'Coral Fish',     rarity:'Uncommon',  basePrice:280,    baseIncome:8.5,  color:0xff7043, shape:'fish' },
+      { id:20, name:'Willow Bat',     rarity:'Uncommon',  basePrice:300,    baseIncome:9.0,  color:0x7e57c2, shape:'bat' },
+      { id:21, name:'Stone Golem',    rarity:'Uncommon',  basePrice:320,    baseIncome:9.5,  color:0x8d6e63, shape:'golem' },
+      { id:22, name:'Leafy Koala',    rarity:'Uncommon',  basePrice:340,    baseIncome:10,   color:0xa5d6a7, shape:'koala' },
+      { id:23, name:'Cloud Lamb',     rarity:'Uncommon',  basePrice:360,    baseIncome:10.5, color:0xe1f5fe, shape:'sheep' },
+      { id:24, name:'Crystal Wolf',   rarity:'Rare',      basePrice:550,    baseIncome:18,   color:0x7e57c2, shape:'wolf' },
+      { id:25, name:'Aqua Dolphin',   rarity:'Rare',      basePrice:600,    baseIncome:20,   color:0x29b6f6, shape:'dolphin' },
+      { id:26, name:'Ember Hawk',     rarity:'Rare',      basePrice:650,    baseIncome:22,   color:0xff7043, shape:'bird' },
+      { id:27, name:'Jade Panther',   rarity:'Rare',      basePrice:700,    baseIncome:24,   color:0x26a69a, shape:'cat' },
+      { id:28, name:'Storm Raven',    rarity:'Rare',      basePrice:750,    baseIncome:26,   color:0x5c6bc0, shape:'bird' },
+      { id:29, name:'Frost Penguin',  rarity:'Rare',      basePrice:800,    baseIncome:28,   color:0xb3e5fc, shape:'penguin' },
+      { id:30, name:'Magma Lizard',   rarity:'Rare',      basePrice:850,    baseIncome:30,   color:0xff5722, shape:'lizard' },
+      { id:31, name:'Silver Stag',    rarity:'Rare',      basePrice:900,    baseIncome:32,   color:0xb0bec5, shape:'deer' },
+      { id:32, name:'Poison Toad',    rarity:'Rare',      basePrice:950,    baseIncome:34,   color:0x9ccc65, shape:'frog' },
+      { id:33, name:'Thunder Hare',   rarity:'Rare',      basePrice:1000,   baseIncome:36,   color:0xffee58, shape:'bunny' },
+      { id:34, name:'Shadow Mole',    rarity:'Rare',      basePrice:1100,   baseIncome:38,   color:0x455a64, shape:'mole' },
+      { id:35, name:'Pearl Seal',     rarity:'Rare',      basePrice:1200,   baseIncome:40,   color:0xe0f7fa, shape:'seal' },
+      { id:36, name:'Shadow Lynx',    rarity:'Epic',      basePrice:1800,   baseIncome:55,   color:0x7e57c2, shape:'cat' },
+      { id:37, name:'Phoenix Cub',    rarity:'Epic',      basePrice:2000,   baseIncome:62,   color:0xff5722, shape:'fox' },
+      { id:38, name:'Frost Bear',     rarity:'Epic',      basePrice:2200,   baseIncome:68,   color:0xb3e5fc, shape:'bear' },
+      { id:39, name:'Venom Serpent',  rarity:'Epic',      basePrice:2400,   baseIncome:75,   color:0x9ccc65, shape:'snake' },
+      { id:40, name:'Arcane Owl',     rarity:'Epic',      basePrice:2600,   baseIncome:82,   color:0xce93d8, shape:'owl' },
+      { id:41, name:'Blaze Corgi',    rarity:'Epic',      basePrice:2800,   baseIncome:88,   color:0xff6f00, shape:'dog' },
+      { id:42, name:'Ice Gecko',      rarity:'Epic',      basePrice:3000,   baseIncome:95,   color:0x80deea, shape:'lizard' },
+      { id:43, name:'Void Crow',      rarity:'Epic',      basePrice:3200,   baseIncome:102,  color:0x311b92, shape:'bird' },
+      { id:44, name:'Solar Fox',      rarity:'Epic',      basePrice:3400,   baseIncome:110,  color:0xffab00, shape:'fox' },
+      { id:45, name:'Mystic Moth',    rarity:'Epic',      basePrice:3600,   baseIncome:118,  color:0xf48fb1, shape:'moth' },
+      { id:46, name:'Steel Rhino',    rarity:'Epic',      basePrice:3800,   baseIncome:125,  color:0x90a4ae, shape:'rhino' },
+      { id:47, name:'Dream Jelly',    rarity:'Epic',      basePrice:4000,   baseIncome:132,  color:0xb39ddb, shape:'jelly' },
+      { id:48, name:'Golden Lion',    rarity:'Legendary', basePrice:7000,   baseIncome:180,  color:0xffc107, shape:'lion' },
+      { id:49, name:'Thunder Tiger',  rarity:'Legendary', basePrice:7500,   baseIncome:195,  color:0xff9800, shape:'tiger' },
+      { id:50, name:'Celestial Owl',  rarity:'Legendary', basePrice:8000,   baseIncome:210,  color:0xce93d8, shape:'owl' },
+      { id:51, name:'Nova Unicorn',   rarity:'Legendary', basePrice:8500,   baseIncome:225,  color:0xf8bbd0, shape:'unicorn' },
+      { id:52, name:'Ember Dragonet', rarity:'Legendary', basePrice:9000,   baseIncome:240,  color:0xff3d00, shape:'dragon' },
+      { id:53, name:'Aurora Wolf',    rarity:'Legendary', basePrice:9500,   baseIncome:255,  color:0x00e5ff, shape:'wolf' },
+      { id:54, name:'Crystal Stag',   rarity:'Legendary', basePrice:10000,  baseIncome:270,  color:0xb2ebf2, shape:'deer' },
+      { id:55, name:'Nebula Cat',     rarity:'Legendary', basePrice:11000,  baseIncome:290,  color:0x7c4dff, shape:'cat' },
+      { id:56, name:'Inferno Hawk',   rarity:'Legendary', basePrice:12000,  baseIncome:310,  color:0xff6d00, shape:'bird' },
+      { id:57, name:'Glacier Bear',   rarity:'Legendary', basePrice:13000,  baseIncome:330,  color:0xe1f5fe, shape:'bear' },
+      { id:58, name:'Starlight Fox',  rarity:'Legendary', basePrice:14000,  baseIncome:350,  color:0xea80fc, shape:'fox' },
+      { id:59, name:'Prism Bunny',    rarity:'Legendary', basePrice:15000,  baseIncome:370,  color:0xff80ab, shape:'bunny' },
+      { id:60, name:'Void Drake',     rarity:'Mythic',    basePrice:25000,  baseIncome:520,  color:0x311b92, shape:'dragon' },
+      { id:61, name:'Solar Griffin',  rarity:'Mythic',    basePrice:28000,  baseIncome:580,  color:0xff6f00, shape:'griffin' },
+      { id:62, name:'Lunar Kitsune',  rarity:'Mythic',    basePrice:31000,  baseIncome:640,  color:0xe1bee7, shape:'fox' },
+      { id:63, name:'Abyss Levi',     rarity:'Mythic',    basePrice:34000,  baseIncome:700,  color:0x1a237e, shape:'leviathan' },
+      { id:64, name:'Comet Phoenix',  rarity:'Mythic',    basePrice:37000,  baseIncome:760,  color:0xff3d00, shape:'phoenix' },
+      { id:65, name:'Storm Hydra',    rarity:'Mythic',    basePrice:40000,  baseIncome:820,  color:0x00bcd4, shape:'hydra' },
+      { id:66, name:'Eclipse Panther',rarity:'Mythic',    basePrice:43000,  baseIncome:880,  color:0x4a148c, shape:'cat' },
+      { id:67, name:'Frost Wyrm',     rarity:'Mythic',    basePrice:46000,  baseIncome:940,  color:0x84ffff, shape:'dragon' },
+      { id:68, name:'Radiant Sphinx', rarity:'Mythic',    basePrice:50000,  baseIncome:1000, color:0xffd740, shape:'sphinx' },
+      { id:69, name:'Chaos Imp',      rarity:'Mythic',    basePrice:55000,  baseIncome:1100, color:0xd50000, shape:'imp' },
+      { id:70, name:'Rainbow Slime',  rarity:'Secret',    basePrice:90000,  baseIncome:1600, color:0xff4081, shape:'slime' },
+      { id:71, name:'Galaxy Corgi',   rarity:'Secret',    basePrice:110000, baseIncome:1900, color:0x7c4dff, shape:'dog' },
+      { id:72, name:'Pixel Ghost',    rarity:'Secret',    basePrice:130000, baseIncome:2200, color:0xe0e0e0, shape:'ghost' },
+      { id:73, name:'Neon Axolotl',   rarity:'Secret',    basePrice:150000, baseIncome:2500, color:0xff80ab, shape:'axolotl' },
+      { id:74, name:'Quantum Quokka', rarity:'Secret',    basePrice:180000, baseIncome:2900, color:0x69f0ae, shape:'quokka' },
+      { id:75, name:'Void Kitten',    rarity:'Secret',    basePrice:210000, baseIncome:3300, color:0x6200ea, shape:'cat' },
+      { id:76, name:'Starry Panda',   rarity:'Secret',    basePrice:250000, baseIncome:3800, color:0x212121, shape:'panda' },
+      { id:77, name:'Mirage Camel',   rarity:'Secret',    basePrice:300000, baseIncome:4500, color:0xffab40, shape:'camel' },
+      { id:78, name:'Diamond Phoenix',   rarity:'Diamond', basePrice:450000,  baseIncome:6500,  color:0x00e5ff, shape:'phoenix' },
+      { id:79, name:'Eternal Leviathan', rarity:'Diamond', basePrice:600000,  baseIncome:8500,  color:0x18ffff, shape:'leviathan' },
+      { id:80, name:'Crystal Emperor',   rarity:'Diamond', basePrice:800000,  baseIncome:11000, color:0x84ffff, shape:'dragon' },
+      { id:81, name:'Aether Unicorn',    rarity:'Diamond', basePrice:1000000, baseIncome:14000, color:0xe040fb, shape:'unicorn' },
+      { id:82, name:'Plasma Tiger',      rarity:'Diamond', basePrice:1300000, baseIncome:18000, color:0xff1744, shape:'tiger' },
+      { id:83, name:'Chrono Owl',        rarity:'Diamond', basePrice:1600000, baseIncome:22000, color:0x7c4dff, shape:'owl' },
+      { id:84, name:'Prism Dragon',      rarity:'Diamond', basePrice:2000000, baseIncome:28000, color:0x00e676, shape:'dragon' },
+      { id:85, name:'Infinity Fox',      rarity:'Diamond', basePrice:2500000, baseIncome:35000, color:0xffd600, shape:'fox' },
+      { id:86, name:'Stellar Seraph',    rarity:'Celestial', basePrice:4000000,  baseIncome:55000,  color:0xe040fb, shape:'seraph' },
+      { id:87, name:'Cosmic Whale',      rarity:'Celestial', basePrice:5500000,  baseIncome:72000,  color:0x651fff, shape:'whale' },
+      { id:88, name:'Nebula Kitsune',    rarity:'Celestial', basePrice:7000000,  baseIncome:90000,  color:0xd500f9, shape:'fox' },
+      { id:89, name:'Astral Phoenix',    rarity:'Celestial', basePrice:9000000,  baseIncome:115000, color:0xff4081, shape:'phoenix' },
+      { id:90, name:'Void Emperor',      rarity:'Celestial', basePrice:12000000, baseIncome:150000, color:0x311b92, shape:'dragon' },
+      { id:91, name:'Galactic Sphinx',   rarity:'Celestial', basePrice:15000000, baseIncome:190000, color:0xea80fc, shape:'sphinx' },
+      { id:92, name:'Omega Titan',       rarity:'Omega',    basePrice:40000000, baseIncome:450000, color:0xffd700, shape:'titan' },
+      { id:93, name:'Absolute Zero',     rarity:'Omega',    basePrice:75000000, baseIncome:900000, color:0xffffff, shape:'absolute' }
+    ];
+
+    let money = 25;
+    let owned = {};
+    let totalIncome = 0;
+    const activePets = [];
+    let currentUser = null;
+
+    const STORAGE_KEY = 'petPathTycoon_v2';
+    const ACCOUNTS_KEY = 'petPathTycoon_accounts';
+
+    function simpleHash(str) {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) h = ((h << 5) - h) + str.charCodeAt(i) | 0;
+      return 'h' + Math.abs(h).toString(36);
+    }
+    function getAccounts() {
+      try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '{}'); } catch { return {}; }
+    }
+    function setAccounts(obj) { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(obj)); }
+
+    function getSaveData() {
+      return { money: Math.floor(money), owned: { ...owned }, version: 2, ts: Date.now() };
+    }
+    function applySaveData(data) {
+      if (!data || typeof data.money !== 'number') return false;
+      money = Math.max(0, data.money);
+      owned = data.owned || {};
+      activePets.forEach(m => scene.remove(m));
+      activePets.length = 0;
+      for (const id in owned) {
+        const cnt = owned[id];
+        const pet = PET_DATA[id];
+        if (pet && cnt > 0) spawnPetOnPath(pet, Math.min(cnt, 6));
+      }
+      calcTotalIncome();
+      updateHUD();
+      return true;
+    }
+    function saveProgress() {
+      const data = getSaveData();
+      // ALWAYS save a global snapshot (this is what restores after close/reopen)
+      try {
+        localStorage.setItem(STORAGE_KEY + '_snapshot', JSON.stringify(data));
+        localStorage.setItem(STORAGE_KEY + '_money', String(Math.floor(money)));
+        localStorage.setItem(STORAGE_KEY + '_owned', JSON.stringify(owned));
+      } catch(e) { console.warn('save failed', e); }
+
+      if (currentUser) {
+        const accounts = getAccounts();
+        if (accounts[currentUser.username]) {
+          accounts[currentUser.username].save = data;
+          setAccounts(accounts);
+          localStorage.setItem(STORAGE_KEY + '_last', currentUser.username);
+        }
+      }
+    }
+    function loadProgressForUser(username) {
+      const accounts = getAccounts();
+      const acc = accounts[username];
+      if (!acc) return false;
+      currentUser = { username, email: acc.email || '', passwordHash: acc.passwordHash };
+      if (acc.save) applySaveData(acc.save);
+      else {
+        money = 25; owned = { 0: 1 };
+        activePets.forEach(m => scene.remove(m));
+        activePets.length = 0;
+        spawnPetOnPath(PET_DATA[0], 1);
+        calcTotalIncome();
+      }
+      updateHUD();
+      updateAccountUI();
+      return true;
+    }
+    function createAccount(username, password, email) {
+      username = username.trim().toLowerCase();
+      if (username.length < 3) { showToast('Username too short (min 3)'); return false; }
+      if (password.length < 4) { showToast('Password too short (min 4)'); return false; }
+      const accounts = getAccounts();
+      if (accounts[username]) { showToast('Username already taken'); return false; }
+      accounts[username] = {
+        passwordHash: simpleHash(password + username),
+        email: (email || '').trim().toLowerCase(),
+        created: Date.now(),
+        save: getSaveData()
+      };
+      setAccounts(accounts);
+      currentUser = { username, email: accounts[username].email, passwordHash: accounts[username].passwordHash };
+      localStorage.setItem(STORAGE_KEY + '_last', username);
+      saveProgress(); // write money/pets right away
+      updateAccountUI();
+      showToast('Account created! Everything will auto-save from now on.');
+      return true;
+    }
+    function signIn(username, password) {
+      username = username.trim().toLowerCase();
+      const accounts = getAccounts();
+      const acc = accounts[username];
+      if (!acc) {
+        // Account missing (maybe different file path) – still try to restore last money
+        try {
+          const snap = JSON.parse(localStorage.getItem(STORAGE_KEY + '_snapshot') || 'null');
+          if (snap && typeof snap.money === 'number') {
+            applySaveData(snap);
+            updateHUD();
+            showToast('Account not in this browser, but your last money was restored');
+            return false;
+          }
+        } catch(e) {}
+        showToast('Account not found on this browser');
+        return false;
+      }
+      if (acc.passwordHash !== simpleHash(password + username)) { showToast('Wrong password'); return false; }
+      loadProgressForUser(username);
+      if (acc.save) applySaveData(acc.save);
+      saveProgress();
+      showToast('Signed in — money & pets loaded!');
+      return true;
+    }
+    function signOut() {
+      saveProgress();
+      currentUser = null;
+      money = 25; owned = { 0: 1 };
+      activePets.forEach(m => scene.remove(m));
+      activePets.length = 0;
+      spawnPetOnPath(PET_DATA[0], 1);
+      calcTotalIncome();
+      updateHUD();
+      updateAccountUI();
+      showToast('Signed out. Playing as Guest.');
+    }
+    function updateAccountUI() {
+      const nameEl = document.getElementById('accountName');
+      const signOutBtn = document.getElementById('signOutBtn');
+      if (currentUser) { nameEl.textContent = currentUser.username; signOutBtn.style.display = 'block'; }
+      else { nameEl.textContent = 'Guest'; signOutBtn.style.display = 'none'; }
+    }
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.Fog(0x87CEEB, 45, 105);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 220);
+    camera.position.set(0, 18, 22);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    document.body.appendChild(renderer.domElement);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+    const sun = new THREE.DirectionalLight(0xfff5e0, 0.95);
+    sun.position.set(30, 50, 20); sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 5; sun.shadow.camera.far = 140;
+    sun.shadow.camera.left = -55; sun.shadow.camera.right = 55;
+    sun.shadow.camera.top = 55; sun.shadow.camera.bottom = -55;
+    scene.add(sun);
+    scene.add(new THREE.DirectionalLight(0xa0c8ff, 0.25).translateX(-20).translateY(20).translateZ(-10));
+
+    function box(w, h, d, color, x=0, y=0, z=0) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
+      m.position.set(x, y + h/2, z); m.castShadow = true; m.receiveShadow = true; return m;
+    }
+    function plane(w, d, color, y=0) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshLambertMaterial({ color }));
+      m.rotation.x = -Math.PI/2; m.position.y = y; m.receiveShadow = true; return m;
+    }
+    scene.add(plane(130, 130, 0x4caf50, 0));
+    const path = plane(6.2, 100, 0xe53935, 0.02); path.position.z = -10; scene.add(path);
+    scene.add(plane(0.3, 100, 0xb71c1c, 0.03).translateX(-3.2).translateZ(-10));
+    scene.add(plane(0.3, 100, 0xb71c1c, 0.03).translateX(3.2).translateZ(-10));
+
+    const colliders = [];
+    function addCollider(x, z, w, d, margin=0.45) {
+      colliders.push({ minX: x-w/2-margin, maxX: x+w/2+margin, minZ: z-d/2-margin, maxZ: z+d/2+margin });
+    }
+    function makeBuilding(x, z, w, h, d, roofColor=0x9e9e9e, wallColor=0xbdbdbd, opts={}) {
+      const g = new THREE.Group(); g.position.set(x,0,z);
+      g.add(box(w, h, d, wallColor, 0, 0, 0));
+      g.add(box(w+0.4, 0.35, d+0.4, roofColor, 0, h, 0));
+      if (opts.awning) g.add(box(w*0.7, 0.12, 1.15, opts.awning, 0, h*0.55, d/2+0.48));
+      if (opts.windows) opts.windows.forEach(win => {
+        g.add(box(win.w||1.2, win.h||0.65, 0.08, win.color||0x42a5f5, win.x||0, win.y||h*0.45, (win.side||1)*(d/2+0.04)));
+      });
+      if (opts.vending) {
+        g.add(box(1.05, 1.55, 0.48, 0x37474f, opts.vending.x||0, 0, d/2+0.28));
+        g.add(box(0.75, 0.45, 0.06, 0xff5252, opts.vending.x||0, 1.05, d/2+0.54));
+      }
+      if (opts.stripe) g.add(box(w+0.05, 0.22, d+0.05, opts.stripe, 0, h*0.32, 0));
+      scene.add(g); addCollider(x, z, w, d);
+    }
+    makeBuilding(-11, 8, 7, 3.2, 5.5, 0x9e9e9e, 0xcfd8dc, { windows:[{x:-1.5,y:1.8,color:0xef5350,w:1.8,h:0.55},{x:1.5,y:1.8,color:0x66bb6a,w:1.4,h:0.55}], vending:{x:-1.8} });
+    makeBuilding(-12, -6, 6.5, 2.8, 5, 0x8d6e63, 0xbcaaa4, { awning:0xff7043, windows:[{x:0,y:1.5,color:0x29b6f6,w:2.2,h:0.7}], stripe:0x5d4037 });
+    makeBuilding(-10, -18, 5.5, 3.5, 4.5, 0x90a4ae, 0xeceff1, { windows:[{x:-1.2,color:0xffca28},{x:1.2,color:0xab47bc}] });
+    makeBuilding(12, 10, 6, 2.6, 5, 0x78909c, 0xb0bec5, { windows:[{x:0,y:1.4,color:0xef5350,w:2.5,h:0.6}], vending:{x:1.5} });
+    makeBuilding(13, -4, 7, 3.4, 5.5, 0x6d4c41, 0xa1887f, { awning:0x42a5f5, windows:[{x:-1.8,color:0x66bb6a},{x:0,color:0xffa726},{x:1.8,color:0x26c6da}] });
+    makeBuilding(11, -16, 5, 2.9, 4.8, 0x546e7a, 0xcfd8dc, { stripe:0xff7043, windows:[{x:0,color:0xec407a,w:2,h:0.8}] });
+    makeBuilding(-7, -36, 5, 4, 4, 0x455a64, 0x90a4ae);
+    makeBuilding(7, -36, 5, 4, 4, 0x455a64, 0x90a4ae);
+    makeBuilding(0, -38, 8, 3.5, 3, 0x37474f, 0x607d8b, { windows:[{x:-2,color:0x111,w:1.2,h:1.8},{x:2,color:0x111,w:1.2,h:1.8}] });
+    makeBuilding(-16, 0, 4, 2.2, 3.5, 0x8d6e63, 0xd7ccc8, { awning:0xffca28 });
+    makeBuilding(16, 2, 4.5, 2.4, 3.8, 0x78909c, 0xb0bec5);
+
+    function makeBench(x,z,rot=0) {
+      const g = new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rot;
+      g.add(box(2.2,0.18,0.7,0x8d6e63,0,0.45,0));
+      g.add(box(2.2,0.7,0.12,0x6d4c41,0,0.7,-0.3));
+      g.add(box(0.15,0.45,0.15,0x5d4037,-0.85,0,0.2));
+      g.add(box(0.15,0.45,0.15,0x5d4037,0.85,0,0.2));
+      scene.add(g); addCollider(x,z,2.4,1.0,0.2);
+    }
+    function makeTable(x,z) {
+      const g = new THREE.Group(); g.position.set(x,0,z);
+      g.add(box(1.6,0.12,1.0,0xffecb3,0,0.7,0));
+      g.add(box(0.12,0.7,0.12,0x8d6e63,0,0,0));
+      g.add(box(1.8,0.08,1.2,0xffffff,0,1.35,0));
+      g.add(box(1.8,0.09,0.25,0xe53935,0,1.35,-0.3));
+      g.add(box(1.8,0.09,0.25,0xe53935,0,1.35,0.3));
+      scene.add(g); addCollider(x,z,1.8,1.2,0.2);
+    }
+    function makeCrate(x,z,col=0xd7ccc8,s=1) {
+      scene.add(box(1.1*s,0.9*s,1.1*s,col,x,0,z)); addCollider(x,z,1.2*s,1.2*s,0.15);
+    }
+    function makeSign(x,z,col=0xf48fb1) {
+      const g = new THREE.Group(); g.position.set(x,0,z);
+      g.add(box(0.15,1.4,0.15,0x5d4037,0,0,0));
+      g.add(box(1.4,0.9,0.12,col,0,1.5,0));
+      scene.add(g);
+    }
+    function makePlant(x,z) {
+      scene.add(box(0.5,0.35,0.5,0xa1887f,x,0,z));
+      const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.45,0.9,6), new THREE.MeshLambertMaterial({color:0x43a047}));
+      leaf.position.set(x,0.85,z); leaf.castShadow=true; scene.add(leaf);
+    }
+    makeBench(4.5,2,0.1); makeBench(-5,-8,-0.2); makeBench(6,-12,0.4);
+    makeTable(5.5,-2); makeTable(-6.5,4);
+    makeCrate(3.5,6,0xffcc80); makeCrate(4.2,6.8,0xbcaaa4,0.8);
+    makeCrate(-4,-14,0xa5d6a7); makeCrate(7,8,0x90caf9,0.9);
+    makeSign(8,-8,0xf48fb1); makeSign(-8,12,0x80cbc4); makeSign(3,-22,0xffe082);
+    makePlant(2.5,4); makePlant(-3,1); makePlant(9,-1); makePlant(-7,-10); makePlant(5,-18);
+
+    const player = new THREE.Group();
+    player.add(box(0.7,0.85,0.5,0xffeb3b,0,0.35,0));
+    const legL = box(0.28,0.4,0.28,0x1e88e5,-0.18,0,0);
+    const legR = box(0.28,0.4,0.28,0x1e88e5,0.18,0,0);
+    player.add(legL, legR);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.55,0.55), new THREE.MeshLambertMaterial({color:0xffcc80}));
+    head.position.y = 1.45; head.castShadow = true; player.add(head);
+    player.add(box(0.6,0.22,0.6,0xec407a,0,1.7,0));
+    player.add(box(0.12,0.12,0.08,0x212121,-0.14,1.5,0.28));
+    player.add(box(0.12,0.12,0.08,0x212121,0.14,1.5,0.28));
+    player.position.set(0,0,8);
+    scene.add(player);
+
+    function createPetMesh(data) {
+      const g = new THREE.Group();
+      const c = data.color;
+      const s = 0.5 + (RARITIES[data.rarity].order * 0.035);
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.7*s, 0.5*s, 0.55*s), new THREE.MeshLambertMaterial({color:c}));
+      body.position.y = 0.35*s; body.castShadow = true; g.add(body);
+      const headM = new THREE.Mesh(new THREE.BoxGeometry(0.45*s, 0.4*s, 0.4*s), new THREE.MeshLambertMaterial({color:c}));
+      headM.position.set(0, 0.7*s, 0.25*s); headM.castShadow = true; g.add(headM);
+      g.add(box(0.1*s,0.1*s,0.06*s,0x111111,-0.12*s,0.75*s,0.45*s));
+      g.add(box(0.1*s,0.1*s,0.06*s,0x111111,0.12*s,0.75*s,0.45*s));
+      const shape = data.shape;
+      if (['cat','fox','wolf','tiger','lion','raccoon','koala'].includes(shape)) {
+        g.add(box(0.15*s,0.22*s,0.1*s,c,-0.18*s,0.95*s,0.15*s));
+        g.add(box(0.15*s,0.22*s,0.1*s,c,0.18*s,0.95*s,0.15*s));
+        g.add(box(0.12*s,0.12*s,0.45*s,c,0,0.4*s,-0.45*s));
+      } else if (shape === 'bunny') {
+        g.add(box(0.12*s,0.35*s,0.1*s,c,-0.12*s,1.05*s,0.1*s));
+        g.add(box(0.12*s,0.35*s,0.1*s,c,0.12*s,1.05*s,0.1*s));
+      } else if (['bird','owl','phoenix','griffin','moth'].includes(shape)) {
+        g.add(box(0.55*s,0.12*s,0.35*s,c,-0.45*s,0.45*s,0));
+        g.add(box(0.55*s,0.12*s,0.35*s,c,0.45*s,0.45*s,0));
+        g.add(box(0.12*s,0.1*s,0.2*s,0xffa000,0,0.65*s,0.45*s));
+      } else if (['dragon','leviathan','hydra','titan'].includes(shape)) {
+        g.add(box(0.5*s,0.15*s,0.4*s,c,-0.5*s,0.5*s,0));
+        g.add(box(0.5*s,0.15*s,0.4*s,c,0.5*s,0.5*s,0));
+        g.add(box(0.15*s,0.25*s,0.15*s,0xff1744,0,0.95*s,0.2*s));
+      } else if (shape === 'unicorn' || shape === 'seraph') {
+        g.add(box(0.1*s,0.35*s,0.1*s,0xffffff,0,1.1*s,0.2*s));
+        g.add(box(0.12*s,0.12*s,0.4*s,c,0,0.4*s,-0.4*s));
+      } else if (shape === 'slime' || shape === 'jelly' || shape === 'ghost') {
+        body.scale.set(1.2, 0.85, 1.2);
+      } else if (shape === 'turtle') {
+        g.add(box(0.85*s,0.25*s,0.7*s,0x558b2f,0,0.55*s,0));
+      } else if (shape === 'bee') {
+        g.add(box(0.15*s,0.08*s,0.5*s,0x212121,0,0.45*s,0));
+        g.add(box(0.4*s,0.08*s,0.25*s,0xffffff,-0.4*s,0.55*s,0));
+        g.add(box(0.4*s,0.08*s,0.25*s,0xffffff,0.4*s,0.55*s,0));
+      }
+      const legH = 0.28*s;
+      g.add(box(0.16*s,legH,0.16*s,c,-0.22*s,0,-0.15*s));
+      g.add(box(0.16*s,legH,0.16*s,c,0.22*s,0,-0.15*s));
+      g.add(box(0.16*s,legH,0.16*s,c,-0.22*s,0,0.18*s));
+      g.add(box(0.16*s,legH,0.16*s,c,0.22*s,0,0.18*s));
+      if (RARITIES[data.rarity].order >= 5) {
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.5*s, 0.68*s, 16),
+          new THREE.MeshBasicMaterial({ color: RARITIES[data.rarity].color, transparent:true, opacity:0.5, side:THREE.DoubleSide })
+        );
+        ring.rotation.x = -Math.PI/2; ring.position.y = 0.04; g.add(ring);
+      }
+      g.userData = { petId: data.id, bob: Math.random()*Math.PI*2 };
+      return g;
+    }
+
+    const PATH_START_Z = 30;
+    const PATH_END_Z = -45;
+
+    function spawnPetOnPath(data, count = 1) {
+      for (let i = 0; i < count; i++) {
+        const mesh = createPetMesh(data);
+        mesh.position.set((Math.random()-0.5)*4.2, 0, PATH_START_Z + Math.random()*5);
+        const baseSpeed = 2.6 + RARITIES[data.rarity].order * 0.32;
+        mesh.userData.speed = baseSpeed * (0.85 + Math.random()*0.3);
+        mesh.userData.income = data.baseIncome;
+        mesh.userData.data = data;
+        scene.add(mesh);
+        activePets.push(mesh);
+      }
+    }
+    function recyclePet(mesh) {
+      money += mesh.userData.income;
+      mesh.position.z = PATH_START_Z + Math.random()*3;
+      mesh.position.x = (Math.random()-0.5)*4.2;
+      mesh.userData.bob = Math.random()*Math.PI*2;
+    }
+
+    function calcTotalIncome() {
+      let sum = 0;
+      for (const id in owned) {
+        const p = PET_DATA[id];
+        if (p) sum += p.baseIncome * owned[id];
+      }
+      totalIncome = sum;
+      return sum;
+    }
+    function formatMoney(n) {
+      if (n >= 1e12) return '$' + (n/1e12).toFixed(2) + 'T';
+      if (n >= 1e9)  return '$' + (n/1e9).toFixed(2) + 'B';
+      if (n >= 1e6)  return '$' + (n/1e6).toFixed(2) + 'M';
+      if (n >= 1e3)  return '$' + (n/1e3).toFixed(1) + 'K';
+      return '$' + Math.floor(n);
+    }
+    function updateHUD() {
+      document.getElementById('moneyVal').textContent = formatMoney(money);
+      document.getElementById('incomeVal').textContent = `+${formatMoney(totalIncome)} /s`;
+      const ownedCount = Object.values(owned).reduce((a,b)=>a+b,0);
+      document.getElementById('ownedVal').textContent = `${ownedCount} / 94`;
+    }
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => t.classList.remove('show'), 2400);
+    }
+    function buyPet(id) {
+      const data = PET_DATA[id];
+      if (money < data.basePrice) { showToast('Not enough money!'); return; }
+      money -= data.basePrice;
+      owned[id] = (owned[id] || 0) + 1;
+      calcTotalIncome();
+      updateHUD();
+      spawnPetOnPath(data, 1);
+      showToast(`Bought ${data.name}!`);
+      if (currentUser) saveProgress();
+      renderShop(currentTab);
+    }
+
+    let currentTab = 'All';
+    function renderShop(tab = 'All') {
+      currentTab = tab;
+      const tabsEl = document.getElementById('shopTabs');
+      const listEl = document.getElementById('shopList');
+      const rarities = ['All', ...Object.keys(RARITIES)];
+      tabsEl.innerHTML = rarities.map(r => `<div class="tab ${r===tab?'active':''}" data-r="${r}">${r}</div>`).join('');
+      tabsEl.querySelectorAll('.tab').forEach(el => el.onclick = () => renderShop(el.dataset.r));
+      const filtered = tab === 'All' ? PET_DATA : PET_DATA.filter(p => p.rarity === tab);
+      listEl.innerHTML = filtered.map(p => {
+        const r = RARITIES[p.rarity];
+        const cnt = owned[p.id] || 0;
+        const canAfford = money >= p.basePrice;
+        return `<div class="petCard ${cnt>0?'owned':''}">
+          <div class="rarity" style="color:${r.color}">${p.rarity}</div>
+          <div class="name">${p.name}</div>
+          <div class="stats">Price: ${formatMoney(p.basePrice)}<br>Income: +${p.baseIncome>=1000?(p.baseIncome/1000).toFixed(1)+'K':p.baseIncome.toFixed(1)}/s<br>Owned: ${cnt}</div>
+          <button class="buyBtn ${cnt>0?'owned':''}" data-id="${p.id}" ${!canAfford?'disabled':''}>
+            ${cnt>0 ? `Buy +1 (${formatMoney(p.basePrice)})` : `Buy ${formatMoney(p.basePrice)}`}
+          </button>
+        </div>`;
+      }).join('');
+      listEl.querySelectorAll('.buyBtn').forEach(btn => btn.onclick = () => buyPet(+btn.dataset.id));
+    }
+
+    document.getElementById('shopBtn').onclick = () => {
+      document.getElementById('shopOverlay').classList.add('open');
+      renderShop(currentTab);
+    };
+    document.getElementById('closeShop').onclick = () => document.getElementById('shopOverlay').classList.remove('open');
+    document.getElementById('shopOverlay').addEventListener('click', e => {
+      if (e.target.id === 'shopOverlay') document.getElementById('shopOverlay').classList.remove('open');
+    });
+
+    document.getElementById('accountBtn').onclick = () => {
+      document.getElementById('authOverlay').classList.add('open');
+      updateAccountUI();
+    };
+    document.getElementById('closeAuth').onclick = () => document.getElementById('authOverlay').classList.remove('open');
+    document.getElementById('authOverlay').addEventListener('click', e => {
+      if (e.target.id === 'authOverlay') document.getElementById('authOverlay').classList.remove('open');
+    });
+    document.getElementById('signUpBtn').onclick = () => {
+      const u = document.getElementById('authUser').value;
+      const p = document.getElementById('authPass').value;
+      const e = document.getElementById('authEmail').value;
+      if (createAccount(u, p, e)) document.getElementById('authOverlay').classList.remove('open');
+    };
+    document.getElementById('signInBtn').onclick = () => {
+      const u = document.getElementById('authUser').value;
+      const p = document.getElementById('authPass').value;
+      if (signIn(u, p)) document.getElementById('authOverlay').classList.remove('open');
+    };
+    document.getElementById('signOutBtn').onclick = () => {
+      signOut();
+      document.getElementById('authOverlay').classList.remove('open');
+    };
+
+    function encodeSave() {
+      const payload = { ...getSaveData(), user: currentUser ? currentUser.username : null };
+      return btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    }
+    function decodeSave(code) {
+      try {
+        const json = decodeURIComponent(escape(atob(code.trim())));
+        return JSON.parse(json);
+      } catch { return null; }
+    }
+    document.getElementById('saveBtn').onclick = () => {
+      document.getElementById('saveCodeArea').value = encodeSave();
+      document.getElementById('loadCodeInput').value = '';
+      document.getElementById('saveOverlay').classList.add('open');
+    };
+    document.getElementById('closeSave').onclick = () => document.getElementById('saveOverlay').classList.remove('open');
+    document.getElementById('saveOverlay').addEventListener('click', e => {
+      if (e.target.id === 'saveOverlay') document.getElementById('saveOverlay').classList.remove('open');
+    });
+    document.getElementById('copySaveBtn').onclick = () => {
+      const ta = document.getElementById('saveCodeArea');
+      ta.select();
+      navigator.clipboard.writeText(ta.value).then(() => showToast('Save code copied!')).catch(() => showToast('Select & copy manually'));
+    };
+    document.getElementById('loadSaveBtn').onclick = () => {
+      const code = document.getElementById('loadCodeInput').value || document.getElementById('saveCodeArea').value;
+      const data = decodeSave(code);
+      if (!data) { showToast('Invalid save code'); return; }
+      applySaveData(data);
+      if (currentUser) saveProgress();
+      showToast('Progress loaded!');
+      document.getElementById('saveOverlay').classList.remove('open');
+    };
+
+    const keys = {};
+    window.addEventListener('keydown', e => { keys[e.code] = true; if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
+    window.addEventListener('keyup', e => { keys[e.code] = false; });
+    let touchActive = false, touchStart = {x:0,y:0}, touchDir = {x:0,y:0};
+    window.addEventListener('touchstart', e => {
+      if (e.touches.length===1 && !document.querySelector('.open')) {
+        touchActive = true;
+        touchStart.x = e.touches[0].clientX; touchStart.y = e.touches[0].clientY;
+      }
+    }, {passive:true});
+    window.addEventListener('touchmove', e => {
+      if (!touchActive) return;
+      const dx = e.touches[0].clientX - touchStart.x, dy = e.touches[0].clientY - touchStart.y;
+      const len = Math.hypot(dx,dy)||1;
+      touchDir.x = dx/len; touchDir.y = dy/len;
+    }, {passive:true});
+    window.addEventListener('touchend', () => { touchActive=false; touchDir.x=touchDir.y=0; });
+
+    const speed = 8, playerRadius = 0.45;
+    function canMove(nx, nz) {
+      for (const c of colliders) {
+        if (nx+playerRadius > c.minX && nx-playerRadius < c.maxX && nz+playerRadius > c.minZ && nz-playerRadius < c.maxZ) return false;
+      }
+      return Math.abs(nx) <= 50 && Math.abs(nz) <= 52;
+    }
+    const camOffset = new THREE.Vector3(0, 16, 18);
+    let camPos = camera.position.clone();
+    const clock = new THREE.Clock();
+    let incomeAcc = 0;
+
+    // ===== ALWAYS restore money + pets on every page load =====
+    (function autoRestore() {
+      let restored = false;
+
+      // A) Try full snapshot first (most reliable)
+      try {
+        const snap = JSON.parse(localStorage.getItem(STORAGE_KEY + '_snapshot') || 'null');
+        if (snap && typeof snap.money === 'number') {
+          applySaveData(snap);
+          restored = true;
+        }
+      } catch(e) {}
+
+      // B) Fallback: separate money + owned keys
+      if (!restored) {
+        try {
+          const m = localStorage.getItem(STORAGE_KEY + '_money');
+          const o = localStorage.getItem(STORAGE_KEY + '_owned');
+          if (m !== null) {
+            money = Math.max(0, Number(m) || 0);
+            owned = o ? JSON.parse(o) : { 0: 1 };
+            activePets.forEach(p => scene.remove(p));
+            activePets.length = 0;
+            for (const id in owned) {
+              const pet = PET_DATA[id];
+              if (pet && owned[id] > 0) spawnPetOnPath(pet, Math.min(owned[id], 6));
+            }
+            calcTotalIncome();
+            restored = true;
+          }
+        } catch(e) {}
+      }
+
+      // C) Restore account name if we still have it
+      const lastUser = localStorage.getItem(STORAGE_KEY + '_last');
+      const accounts = getAccounts();
+      if (lastUser && accounts[lastUser]) {
+        currentUser = {
+          username: lastUser,
+          email: accounts[lastUser].email || '',
+          passwordHash: accounts[lastUser].passwordHash
+        };
+        // If account had a save and we didn't restore yet, use it
+        if (!restored && accounts[lastUser].save) {
+          applySaveData(accounts[lastUser].save);
+          restored = true;
+        }
+      }
+
+      if (!restored) {
+        // Brand new player
+        owned[0] = 1;
+        spawnPetOnPath(PET_DATA[0], 1);
+        calcTotalIncome();
+      }
+
+      updateHUD();
+      updateAccountUI();
+
+      if (restored) {
+        const who = currentUser ? currentUser.username : 'Guest';
+        showToast('Welcome back' + (currentUser ? ', ' + currentUser.username : '') + ' — money & pets restored!');
+      }
+
+      // Keep the save chain going
+      saveProgress();
+    })();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      incomeAcc += totalIncome * dt;
+      if (incomeAcc >= 1) {
+        const add = Math.floor(incomeAcc);
+        money += add;
+        incomeAcc -= add;
+        updateHUD();
+      }
+      for (let i = activePets.length-1; i >= 0; i--) {
+        const m = activePets[i];
+        m.position.z -= m.userData.speed * dt;
+        m.userData.bob += dt * 8;
+        m.position.y = Math.abs(Math.sin(m.userData.bob)) * 0.08;
+        m.rotation.y = Math.PI;
+        if (m.position.z < PATH_END_Z) {
+          recyclePet(m);
+          if (RARITIES[m.userData.data.rarity].order >= 6 && Math.random() < 0.06)
+            showToast(`+${formatMoney(m.userData.income)} from ${m.userData.data.name}`);
+        }
+      }
+      let dx=0, dz=0;
+      if (keys['KeyW']||keys['ArrowUp']) dz-=1;
+      if (keys['KeyS']||keys['ArrowDown']) dz+=1;
+      if (keys['KeyA']||keys['ArrowLeft']) dx-=1;
+      if (keys['KeyD']||keys['ArrowRight']) dx+=1;
+      if (touchActive) { dx += touchDir.x; dz += touchDir.y; }
+      if (dx||dz) {
+        const len = Math.hypot(dx,dz); dx/=len; dz/=len;
+        const mx = dx*speed*dt, mz = dz*speed*dt;
+        let nx = player.position.x+mx, nz = player.position.z+mz;
+        if (canMove(nx,nz)) { player.position.x=nx; player.position.z=nz; }
+        else if (canMove(player.position.x+mx, player.position.z)) player.position.x += mx;
+        else if (canMove(player.position.x, player.position.z+mz)) player.position.z += mz;
+        player.rotation.y = Math.atan2(dx, dz);
+        legL.position.y = 0.2 + Math.sin(performance.now()*0.012)*0.12;
+        legR.position.y = 0.2 + Math.sin(performance.now()*0.012+Math.PI)*0.12;
+      } else { legL.position.y = 0.2; legR.position.y = 0.2; }
+      const targetCam = player.position.clone().add(camOffset);
+      camPos.lerp(targetCam, 1 - Math.exp(-4*dt));
+      camera.position.copy(camPos);
+      camera.lookAt(player.position.x, 1.2, player.position.z);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+    function forceSave() { saveProgress(); }
+    window.addEventListener('beforeunload', forceSave);
+    window.addEventListener('pagehide', forceSave);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') forceSave();
+    });
+    // Also save more often while playing
+    setInterval(forceSave, 4000);
+  </script>
+</body>
+</html>
