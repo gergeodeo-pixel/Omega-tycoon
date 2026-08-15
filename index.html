@@ -6,8 +6,56 @@
   <title>Pet Path Tycoon</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { overflow: hidden; background: #87CEEB; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
+    body { overflow: hidden; background: #0a0a14; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
     canvas { display: block; }
+    #homeScreen {
+      position: absolute; inset: 0; z-index: 100;
+      background: linear-gradient(160deg, #0f0c29 0%, #302b63 45%, #24243e 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 20px; overflow-y: auto;
+    }
+    #homeScreen.hidden { display: none; }
+    .home-logo {
+      font-size: clamp(28px, 8vw, 48px); font-weight: 900; color: #fff;
+      text-shadow: 0 0 30px rgba(57,255,20,0.4); margin-bottom: 6px; letter-spacing: -1px;
+    }
+    .home-sub { color: #aaa; font-size: 14px; margin-bottom: 28px; }
+    .mode-card {
+      width: min(360px, 92vw); background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 18px;
+      padding: 20px; margin-bottom: 16px; backdrop-filter: blur(8px);
+    }
+    .mode-card h3 { color: #fff; font-size: 18px; margin-bottom: 6px; }
+    .mode-card p { color: #999; font-size: 13px; line-height: 1.4; margin-bottom: 12px; }
+    .mode-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .players-online {
+      font-size: 13px; color: #81c784; font-weight: 700;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .players-online .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #39ff14;
+      box-shadow: 0 0 8px #39ff14; animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .mode-tag {
+      font-size: 11px; font-weight: 800; color: #ffd54f;
+      background: rgba(255,213,79,0.15); padding: 4px 10px; border-radius: 12px;
+    }
+    #playBtn {
+      width: 100%; padding: 14px; border: none; border-radius: 14px;
+      background: linear-gradient(180deg, #66bb6a, #2e7d32);
+      color: #fff; font-size: 17px; font-weight: 800; cursor: pointer;
+      box-shadow: 0 6px 20px rgba(46,125,50,0.45);
+    }
+    #playBtn:active { transform: scale(0.98); }
+    .home-account {
+      margin-top: 18px; color: #90caf9; font-size: 13px; font-weight: 600;
+    }
+    .home-hint { margin-top: 10px; color: #666; font-size: 11px; text-align: center; max-width: 320px; }
+
     #hud {
       position: absolute; top: 12px; left: 12px; right: 12px;
       display: flex; justify-content: space-between; align-items: flex-start;
@@ -44,23 +92,44 @@
     .btn.account { background: linear-gradient(180deg, #42a5f5, #1e88e5); }
     .btn.close { background: linear-gradient(180deg, #ef5350, #c62828); }
     .btn.secondary { background: linear-gradient(180deg, #78909c, #546e7a); }
-    #shopOverlay, #authOverlay, #saveOverlay {
+    #shopOverlay, #authOverlay, #saveOverlay, #machineOverlay, #fuseResultOverlay, #adminOverlay {
       position: absolute; inset: 0; background: rgba(0,0,0,0.6);
       display: none; justify-content: center; align-items: center;
       pointer-events: auto; z-index: 30;
     }
-    #shopOverlay.open, #authOverlay.open, #saveOverlay.open { display: flex; }
-    #shopPanel, #authPanel, #savePanel {
+    #shopOverlay.open, #authOverlay.open, #saveOverlay.open, #machineOverlay.open, #fuseResultOverlay.open, #adminOverlay.open { display: flex; }
+    #shopPanel, #authPanel, #savePanel, #machinePanel, #adminPanel {
       background: #1a1a2e; width: min(920px, 96vw); max-height: 88vh;
       border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
       border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.55);
     }
     #authPanel, #savePanel { width: min(420px, 94vw); max-height: none; }
-    #shopHeader, #authHeader, #saveHeader {
+    #shopHeader, #authHeader, #saveHeader, #machineHeader {
       padding: 14px 18px; background: #16213e; display: flex;
       justify-content: space-between; align-items: center;
     }
-    #shopHeader h2, #authHeader h2, #saveHeader h2 { font-size: 18px; color: #fff; }
+    #shopHeader h2, #authHeader h2, #saveHeader h2, #machineHeader h2, #adminHeader h2 { font-size: 18px; color: #fff; }
+    #adminHeader { padding: 14px 18px; background: #3b0000; display: flex; justify-content: space-between; align-items: center; }
+
+    #fuseResultPanel {
+      background: #1a1a2e; border-radius: 20px; padding: 28px 32px; text-align: center;
+      border: 2px solid #333; min-width: 280px; max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    }
+    #fuseResultPanel.success { border-color: #39ff14; }
+    #fuseResultPanel.fail { border-color: #ef5350; }
+    #fuseResultIcon { font-size: 52px; margin-bottom: 8px; }
+    #fuseResultTitle { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+    #fuseResultSub { font-size: 14px; color: #aaa; line-height: 1.4; }
+
+    .omegaChip {
+      background:#333; border:1px solid #ffd700; color:#ffd700;
+      padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700;
+    }
+    .slotChip {
+      background:#1a3a1a; border:1px solid #39ff14; color:#39ff14;
+      padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700;
+    }
     #shopTabs { display: flex; gap: 5px; flex-wrap: wrap; padding: 8px 14px; background: #0f0f1a; }
     .tab {
       padding: 5px 11px; border-radius: 18px; font-size: 11px; font-weight: 700;
@@ -117,6 +186,21 @@
   </style>
 </head>
 <body>
+  <div id="homeScreen">
+    <div class="home-logo">🐾 Pet Path Tycoon</div>
+    <div class="home-sub">Collect pets • Walk the red path • Get rich</div>
+    <div class="mode-card">
+      <h3>Classic Path</h3>
+      <p>Explore the town, buy pets, fuse Omegas into Zombify, and earn passive income.</p>
+      <div class="mode-meta">
+        <div class="players-online"><span class="dot"></span> <span id="playerCount">—</span> playing</div>
+        <span class="mode-tag">ONLY MODE</span>
+      </div>
+      <button id="playBtn">▶  Play</button>
+    </div>
+    <div class="home-account" id="homeAccount">Not signed in</div>
+    <div class="home-hint">Your money & pets auto-save. Progress carries over when you return.</div>
+  </div>
   <div id="hud">
     <div class="panel" id="moneyBox">
       <div class="label">MONEY</div>
@@ -125,7 +209,7 @@
     </div>
     <div class="panel" id="ownedBox">
       <div class="label">PETS OWNED</div>
-      <div id="ownedVal">0 / 94</div>
+      <div id="ownedVal">0 / 95</div>
     </div>
     <div class="panel" id="accountBox">
       <div class="label">ACCOUNT</div>
@@ -137,14 +221,91 @@
     <button class="btn shop" id="shopBtn">🛒 Shop</button>
     <button class="btn account" id="accountBtn">👤 Account</button>
     <button class="btn secondary" id="saveBtn">💾 Save Code</button>
+    <button class="btn" id="adminBtn" style="display:none;background:linear-gradient(180deg,#ff1744,#c62828);">⚡ Admin</button>
+  </div>
+  <div id="machineHint" style="display:none;position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#39ff14;padding:8px 16px;border-radius:16px;font-size:13px;font-weight:700;pointer-events:none;z-index:6;border:1px solid #39ff14;">
+    Click the green machine to open Fusion
   </div>
   <div id="hint">WASD / Arrows to walk • Pets walk the red path & earn money</div>
   <div id="toast"></div>
 
+  <!-- Fusion Machine UI -->
+  <div id="machineOverlay">
+    <div id="machinePanel">
+      <div id="machineHeader">
+        <h2>🧟 OG Fusion Machine</h2>
+        <button class="btn close" id="closeMachine">Close</button>
+      </div>
+      <div style="padding:16px 18px;">
+        <p style="font-size:13px;color:#ccc;margin-bottom:12px;line-height:1.45;">
+          Deposit <b style="color:#ffd700;">5 Omega</b> pets to attempt a fusion.<br>
+          <b style="color:#39ff14;">1% chance</b> to create <b>Zombify</b> (OG • 20M/s).<br>
+          On failure the Omegas are consumed.
+        </p>
+        <div style="background:#0f0f1a;border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid #333;">
+          <div style="font-size:12px;color:#aaa;margin-bottom:8px;">DEPOSITED OMEGAS</div>
+          <div id="machineSlots" style="display:flex;gap:8px;flex-wrap:wrap;min-height:40px;"></div>
+          <div id="machineCount" style="margin-top:10px;font-size:14px;font-weight:700;color:#ffd700;">0 / 5</div>
+        </div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:6px;">Your Omega pets available:</div>
+        <div id="omegaList" style="max-height:140px;overflow-y:auto;margin-bottom:14px;"></div>
+        <div class="auth-btns">
+          <button class="btn secondary" id="depositOmegaBtn">+ Deposit 1 Omega</button>
+          <button class="btn" id="spinMachineBtn" style="background:linear-gradient(180deg,#39ff14,#1a8f0a);color:#111;">⚡ Fuse (1%)</button>
+        </div>
+        <button class="btn secondary" id="clearMachineBtn" style="width:100%;margin-top:10px;">Clear deposit</button>
+        <p class="auth-note" id="machineStatus" style="margin-top:12px;"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fuse Result Popup -->
+  <div id="fuseResultOverlay">
+    <div id="fuseResultPanel">
+      <div id="fuseResultIcon">?</div>
+      <div id="fuseResultTitle">Result</div>
+      <div id="fuseResultSub"></div>
+      <button class="btn" id="fuseResultOk" style="margin-top:16px;min-width:120px;">OK</button>
+    </div>
+  </div>
+
+  <!-- Admin Panel -->
+  <div id="adminOverlay">
+    <div id="adminPanel">
+      <div id="adminHeader">
+        <h2>⚡ Admin Panel</h2>
+        <button class="btn close" id="closeAdmin">Close</button>
+      </div>
+      <div style="padding:16px 18px;overflow-y:auto;max-height:70vh;">
+        <p style="font-size:13px;color:#ef5350;margin-bottom:12px;">Admin only — ilovecake1</p>
+        <button class="btn" id="adminMoneyBtn" style="width:100%;background:linear-gradient(180deg,#ffd54f,#f9a825);color:#111;margin-bottom:14px;">
+          💰 Give $120 Billion
+        </button>
+
+        <div style="font-size:13px;font-weight:700;color:#fff;margin:12px 0 8px;">📊 Player stats (this device)</div>
+        <div id="adminStats" style="background:#0f0f1a;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#ccc;line-height:1.5;"></div>
+
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">🎒 Accounts & inventories</div>
+        <div id="adminInventoryList" style="max-height:220px;overflow-y:auto;margin-bottom:14px;"></div>
+
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">🚫 Ban player</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="text" id="banUserInput" placeholder="username to ban" style="flex:1;padding:10px;border-radius:8px;border:1px solid #333;background:#0f0f1a;color:#fff;font-size:13px;">
+          <button class="btn close" id="banUserBtn" style="padding:10px 14px;">Ban</button>
+        </div>
+        <div id="adminBanList" style="font-size:12px;color:#ef9a9a;margin-bottom:16px;"></div>
+
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">Spawn any pet</div>
+        <div id="adminPetList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+
   <div id="shopOverlay">
     <div id="shopPanel">
       <div id="shopHeader">
-        <h2>🐾 Pet Shop (94 Pets)</h2>
+        <h2>🐾 Pet Shop (95 Pets)</h2>
         <button class="btn close" id="closeShop">Close</button>
       </div>
       <div id="shopTabs"></div>
@@ -226,7 +387,8 @@
       Secret:    { color: '#ec407a', order: 6 },
       Diamond:   { color: '#80deea', order: 7 },
       Celestial: { color: '#e040fb', order: 8 },
-      Omega:     { color: '#ffd700', order: 9 }
+      Omega:     { color: '#ffd700', order: 9 },
+      OG:        { color: '#39ff14', order: 10 }
     };
 
     const PET_DATA = [
@@ -323,7 +485,9 @@
       { id:90, name:'Void Emperor',      rarity:'Celestial', basePrice:12000000, baseIncome:150000, color:0x311b92, shape:'dragon' },
       { id:91, name:'Galactic Sphinx',   rarity:'Celestial', basePrice:15000000, baseIncome:190000, color:0xea80fc, shape:'sphinx' },
       { id:92, name:'Omega Titan',       rarity:'Omega',    basePrice:40000000, baseIncome:450000, color:0xffd700, shape:'titan' },
-      { id:93, name:'Absolute Zero',     rarity:'Omega',    basePrice:75000000, baseIncome:900000, color:0xffffff, shape:'absolute' }
+      { id:93, name:'Absolute Zero',     rarity:'Omega',    basePrice:75000000, baseIncome:900000, color:0xffffff, shape:'absolute' },
+      // OG – Machine only
+      { id:94, name:'Zombify',           rarity:'OG',       basePrice:0,        baseIncome:20000000, color:0x3dd68c, shape:'zombify', machineOnly:true }
     ];
 
     let money = 25;
@@ -398,12 +562,27 @@
       updateAccountUI();
       return true;
     }
+    function getBanList() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY + '_bans') || '[]'); } catch { return []; }
+    }
+    function setBanList(list) {
+      localStorage.setItem(STORAGE_KEY + '_bans', JSON.stringify(list));
+    }
+    function isBanned(username) {
+      return getBanList().includes((username || '').trim().toLowerCase());
+    }
+
     function createAccount(username, password, email) {
       username = username.trim().toLowerCase();
       if (username.length < 3) { showToast('Username too short (min 3)'); return false; }
       if (password.length < 4) { showToast('Password too short (min 4)'); return false; }
+      if (isBanned(username)) { showToast('This username is banned'); return false; }
       const accounts = getAccounts();
-      if (accounts[username]) { showToast('Username already taken'); return false; }
+      // Account already claimed — permanent on this browser, cannot be stolen
+      if (accounts[username]) {
+        showToast('Username already taken — accounts cannot be stolen');
+        return false;
+      }
       accounts[username] = {
         passwordHash: simpleHash(password + username),
         email: (email || '').trim().toLowerCase(),
@@ -413,17 +592,20 @@
       setAccounts(accounts);
       currentUser = { username, email: accounts[username].email, passwordHash: accounts[username].passwordHash };
       localStorage.setItem(STORAGE_KEY + '_last', username);
-      saveProgress(); // write money/pets right away
+      saveProgress();
       updateAccountUI();
-      showToast('Account created! Everything will auto-save from now on.');
+      showToast('Account created! This username is now locked to you.');
       return true;
     }
     function signIn(username, password) {
       username = username.trim().toLowerCase();
+      if (isBanned(username)) {
+        showToast('This account is banned');
+        return false;
+      }
       const accounts = getAccounts();
       const acc = accounts[username];
       if (!acc) {
-        // Account missing (maybe different file path) – still try to restore last money
         try {
           const snap = JSON.parse(localStorage.getItem(STORAGE_KEY + '_snapshot') || 'null');
           if (snap && typeof snap.money === 'number') {
@@ -433,7 +615,7 @@
             return false;
           }
         } catch(e) {}
-        showToast('Account not found on this browser');
+        showToast('Account not found — create it first (usernames cannot be stolen)');
         return false;
       }
       if (acc.passwordHash !== simpleHash(password + username)) { showToast('Wrong password'); return false; }
@@ -458,8 +640,17 @@
     function updateAccountUI() {
       const nameEl = document.getElementById('accountName');
       const signOutBtn = document.getElementById('signOutBtn');
-      if (currentUser) { nameEl.textContent = currentUser.username; signOutBtn.style.display = 'block'; }
-      else { nameEl.textContent = 'Guest'; signOutBtn.style.display = 'none'; }
+      const adminBtn = document.getElementById('adminBtn');
+      if (currentUser) {
+        nameEl.textContent = currentUser.username;
+        signOutBtn.style.display = 'block';
+        // Admin check
+        if (adminBtn) adminBtn.style.display = (currentUser.username === 'ilovecake1') ? 'inline-block' : 'none';
+      } else {
+        nameEl.textContent = 'Guest';
+        signOutBtn.style.display = 'none';
+        if (adminBtn) adminBtn.style.display = 'none';
+      }
     }
 
     const scene = new THREE.Scene();
@@ -527,6 +718,88 @@
     makeBuilding(-16, 0, 4, 2.2, 3.5, 0x8d6e63, 0xd7ccc8, { awning:0xffca28 });
     makeBuilding(16, 2, 4.5, 2.4, 3.8, 0x78909c, 0xb0bec5);
 
+    // OG Fusion Machine (clickable 3D object)
+    const fusionMachine = new THREE.Group();
+    fusionMachine.position.set(-8, 0, 14);
+    fusionMachine.name = 'fusionMachine';
+    {
+      const base = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.4, 3.2), new THREE.MeshLambertMaterial({color:0x1a1a1a}));
+      base.position.y = 0.2; base.castShadow = true; base.receiveShadow = true; fusionMachine.add(base);
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.8, 2.2, 12), new THREE.MeshLambertMaterial({color:0x263e0f}));
+      pillar.position.y = 1.4; pillar.castShadow = true; fusionMachine.add(pillar);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.5, 0.5, 12), new THREE.MeshLambertMaterial({color:0x3dd68c}));
+      top.position.y = 2.7; top.castShadow = true; fusionMachine.add(top);
+      const glow = new THREE.Mesh(new THREE.RingGeometry(0.7, 1.1, 20), new THREE.MeshBasicMaterial({color:0x39ff14, transparent:true, opacity:0.5, side:THREE.DoubleSide}));
+      glow.rotation.x = -Math.PI/2; glow.position.y = 0.42; fusionMachine.add(glow);
+      // Invisible hit box for easier clicking
+      const hit = new THREE.Mesh(
+        new THREE.BoxGeometry(3.5, 3.5, 3.5),
+        new THREE.MeshBasicMaterial({ visible: false })
+      );
+      hit.position.y = 1.5;
+      hit.name = 'fusionMachineHit';
+      fusionMachine.add(hit);
+    }
+    scene.add(fusionMachine);
+    addCollider(-8, 14, 3.2, 3.2);
+
+    // ===== Animated gold relic (from Mobile Three.js Editor) =====
+    const Box_1 = new THREE.Mesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0xd19d01, roughness: 0.4, metalness: 0.15 })
+    );
+    Box_1.position.set(0, 1.3759, 0);
+    Box_1.castShadow = true;
+    Box_1.receiveShadow = true;
+
+    const Sphere_2 = new THREE.Mesh(
+      new THREE.SphereGeometry(0.6, 32, 24),
+      new THREE.MeshStandardMaterial({ color: 0x2c0977, roughness: 0.4, metalness: 0.15 })
+    );
+    Sphere_2.position.set(-0.0208, 0.4115, -0.0253);
+    Sphere_2.scale.set(1, 0.0363, 1);
+    Sphere_2.castShadow = true;
+    Sphere_2.receiveShadow = true;
+
+    const relicGroup = new THREE.Group();
+    relicGroup.add(Box_1);
+    relicGroup.add(Sphere_2);
+    relicGroup.position.set(-5.5, 0, 12); // near the fusion machine
+    relicGroup.scale.set(0.7, 0.7, 0.7);
+    scene.add(relicGroup);
+
+    const ANIM_DURATION = 5;
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function smoothstep(t) { return t * t * (3 - 2 * t); }
+    function applyKeyframes(mesh, kfs, t) {
+      if (!kfs || !kfs.length) return;
+      const time = t % ANIM_DURATION;
+      if (kfs.length === 1 || time <= kfs[0].t) {
+        mesh.position.set(...kfs[0].pos);
+        mesh.rotation.set(...kfs[0].rot);
+        mesh.scale.set(...kfs[0].scale);
+        return;
+      }
+      const last = kfs[kfs.length - 1];
+      if (time >= last.t) {
+        mesh.position.set(...last.pos);
+        mesh.rotation.set(...last.rot);
+        mesh.scale.set(...last.scale);
+        return;
+      }
+      let i = 0;
+      while (i < kfs.length - 1 && kfs[i + 1].t < time) i++;
+      const a = kfs[i], b = kfs[i + 1];
+      const u = smoothstep((time - a.t) / (b.t - a.t || 1));
+      mesh.position.set(lerp(a.pos[0], b.pos[0], u), lerp(a.pos[1], b.pos[1], u), lerp(a.pos[2], b.pos[2], u));
+      mesh.rotation.set(lerp(a.rot[0], b.rot[0], u), lerp(a.rot[1], b.rot[1], u), lerp(a.rot[2], b.rot[2], u));
+      mesh.scale.set(lerp(a.scale[0], b.scale[0], u), lerp(a.scale[1], b.scale[1], u), lerp(a.scale[2], b.scale[2], u));
+    }
+    const kfs_Box_1 = [{"t":0,"pos":[0,1.3759059758573067,0],"rot":[0.7590663062989547,-0.48209312120680736,-0.4545811468484232],"scale":[1,1,1]},{"t":1.0687218541684358,"pos":[0,1.3759059758573067,0],"rot":[0.7590663062989547,-0.48209312120680736,-0.4545811468484232],"scale":[1,1,1]},{"t":1.802999999999998,"pos":[0,1.3759059758573067,0],"rot":[1.910633114371627,0.6738031351259752,-3.02167852244441],"scale":[1,1,1]},{"t":2.1291185461956523,"pos":[0,1.3759059758573067,0],"rot":[2.116932960981965,-0.7761647534049773,1.4164722137354966],"scale":[1,1,1]},{"t":2.705974578857422,"pos":[0,1.3759059758573067,0],"rot":[2.388075654464347,0.2556261423370397,2.4908604130206093],"scale":[1,1,1]},{"t":3.3846287105394444,"pos":[0,1.3759059758573067,0],"rot":[2.470154661681086,-0.1992619535886079,2.1166302435402784],"scale":[1,1,1]},{"t":3.6645740011463994,"pos":[0,1.3759059758573067,0],"rot":[1.6314470278839208,0.24357862596456292,2.8622448556433624],"scale":[1,1,1]},{"t":4.054800116497537,"pos":[0,1.3759059758573067,0],"rot":[0.6559712472484169,-0.020367507589879725,-0.8532793328644889],"scale":[1,1,1]},{"t":4.4704752383024795,"pos":[0,1.3759059758573067,0],"rot":[2.470154661681086,-0.1992619535886079,2.1166302435402784],"scale":[1,1,1]},{"t":4.640138874883237,"pos":[0,1.3759059758573067,0],"rot":[1.9019772304972413,-0.8699769575221697,1.1245920558640405],"scale":[1,1,1]},{"t":4.894633915113366,"pos":[0,1.3759059758573067,0],"rot":[2.470154661681086,-0.1992619535886079,2.1166302435402784],"scale":[1,1,1]}];
+    function updateEditorAnimations(elapsed) {
+      applyKeyframes(Box_1, kfs_Box_1, elapsed);
+    }
+
     function makeBench(x,z,rot=0) {
       const g = new THREE.Group(); g.position.set(x,0,z); g.rotation.y=rot;
       g.add(box(2.2,0.18,0.7,0x8d6e63,0,0.45,0));
@@ -565,21 +838,137 @@
     makeSign(8,-8,0xf48fb1); makeSign(-8,12,0x80cbc4); makeSign(3,-22,0xffe082);
     makePlant(2.5,4); makePlant(-3,1); makePlant(9,-1); makePlant(-7,-10); makePlant(5,-18);
 
+    // ===== Custom player character (floating — Mobile Three.js Editor) =====
     const player = new THREE.Group();
-    player.add(box(0.7,0.85,0.5,0xffeb3b,0,0.35,0));
-    const legL = box(0.28,0.4,0.28,0x1e88e5,-0.18,0,0);
-    const legR = box(0.28,0.4,0.28,0x1e88e5,0.18,0,0);
-    player.add(legL, legR);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.55,0.55,0.55), new THREE.MeshLambertMaterial({color:0xffcc80}));
-    head.position.y = 1.45; head.castShadow = true; player.add(head);
-    player.add(box(0.6,0.22,0.6,0xec407a,0,1.7,0));
-    player.add(box(0.12,0.12,0.08,0x212121,-0.14,1.5,0.28));
-    player.add(box(0.12,0.12,0.08,0x212121,0.14,1.5,0.28));
-    player.position.set(0,0,8);
+    const pMat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.15 });
+
+    // Blue torso band
+    const pTorso = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0x4f8cff));
+    pTorso.position.set(0.0000, 3.0850, 0.0000);
+    pTorso.scale.set(-0.4884, 1.0283, 0.1523);
+    pTorso.castShadow = true; pTorso.receiveShadow = true;
+    player.add(pTorso);
+
+    // Pink head cylinder
+    const pHead = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 32), pMat(0xff5c8a));
+    pHead.position.set(0.0126, 3.9253, 0.0242);
+    pHead.scale.set(1.0283, 1.0283, 1.0283);
+    pHead.castShadow = true; pHead.receiveShadow = true;
+    player.add(pHead);
+
+    // Yellow limbs
+    const pLegL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
+    pLegL.position.set(-0.1432, 1.6035, -0.0465);
+    pLegL.rotation.set(0.0947, 0.0000, 0.0000);
+    pLegL.scale.set(0.3397, 2.7672, 0.1242);
+    pLegL.castShadow = true; pLegL.receiveShadow = true;
+    player.add(pLegL);
+
+    const pLegR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
+    pLegR.position.set(0.1362, 1.7234, -0.0172);
+    pLegR.rotation.set(0.0909, 0.0000, 0.0000);
+    pLegR.scale.set(0.3397, 2.7672, 0.1242);
+    pLegR.castShadow = true; pLegR.receiveShadow = true;
+    player.add(pLegR);
+
+    const pArmL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
+    pArmL.position.set(-0.7640, 2.3732, 0.5283);
+    pArmL.rotation.set(-0.7502, -0.4693, -0.5818);
+    pArmL.scale.set(0.3397, 2.7672, 0.1242);
+    pArmL.castShadow = true; pArmL.receiveShadow = true;
+    player.add(pArmL);
+
+    const pArmR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
+    pArmR.position.set(0.8716, 2.2243, 0.6253);
+    pArmR.rotation.set(-1.1573, 0.8446, 0.8572);
+    pArmR.scale.set(0.3397, 2.7672, 0.1242);
+    pArmR.castShadow = true; pArmR.receiveShadow = true;
+    player.add(pArmR);
+
+    // aliases (unused for bob now, but kept safe)
+    const legL = pLegL;
+    const legR = pLegR;
+
+    // Keyframes
+    const kfs_pTorso = [{"t":0,"pos":[0,3.0850101422330005,0],"rot":[0,0,0],"scale":[-0.4749757820792168,1,0.14815354541374667]},{"t":2.5,"pos":[0,3.0850101422330005,0],"rot":[0,0,0],"scale":[-0.7124636731188252,1.5,0.22223031812062]},{"t":5,"pos":[0,3.0850101422330005,0],"rot":[0,0,0],"scale":[-0.4749757820792168,1,0.14815354541374667]}];
+    const kfs_pHead = [{"t":0,"pos":[0.012574082018963997,3.925265579439033,0.02418037812933088],"rot":[0,0,0],"scale":[1,1,1]},{"t":1.6964767290198286,"pos":[0.012574082018963997,4.521062835325854,0.02418037812933088],"rot":[0,0,0],"scale":[1.3782469337596779,1.3782469337596779,1.3782469337596779]},{"t":2.5,"pos":[0.012574082018963997,3.925265579439033,0.02418037812933088],"rot":[0,0,0],"scale":[1.5,1.5,1.5]},{"t":5,"pos":[0.012574082018963997,3.925265579439033,0.02418037812933088],"rot":[0,0,0],"scale":[1,1,1]}];
+    const kfs_pLegL = [{"t":0,"pos":[-0.14323548066441244,1.6034813735629578,-0.046523569686281685],"rot":[0.09473686690175971,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[-0.14323548066441244,1.6034813735629578,-0.046523569686281685],"rot":[0.09473686690175971,0,0],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[-0.14323548066441244,1.6034813735629578,-0.046523569686281685],"rot":[0.09473686690175971,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
+    const kfs_pLegR = [{"t":0,"pos":[0.13615934881047465,1.7233717555732344,-0.017237965338583017],"rot":[0.09089354484708909,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[0.13615934881047465,1.7233717555732344,-0.017237965338583017],"rot":[0.09089354484708909,0,0],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[0.13615934881047465,1.7233717555732344,-0.017237965338583017],"rot":[0.09089354484708909,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
+    const kfs_pArmL = [{"t":0,"pos":[-0.7639795788074146,2.373221090322509,0.5282789367111191],"rot":[-0.7501957096212181,-0.46934239849003584,-0.5818072573472016],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[-0.7639795788074146,2.373221090322509,0.5282789367111191],"rot":[-0.7501957096212181,-0.46934239849003584,-0.5818072573472016],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[-0.7639795788074146,2.373221090322509,0.5282789367111191],"rot":[-0.7501957096212181,-0.46934239849003584,-0.5818072573472016],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
+    const kfs_pArmR = [{"t":0,"pos":[0.8716290701300493,2.2243214218113962,0.6253216925724324],"rot":[-1.1572646408466682,0.8445991991643329,0.8571739830323962],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[0.8716290701300493,2.2243214218113962,0.6253216925724324],"rot":[-1.1572646408466682,0.8445991991643329,0.8571739830323962],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[0.8716290701300493,2.2243214218113962,0.6253216925724324],"rot":[-1.1572646408466682,0.8445991991643329,0.8571739830323962],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
+
+    function updatePlayerAnimations(elapsed) {
+      applyKeyframes(pTorso, kfs_pTorso, elapsed);
+      applyKeyframes(pHead, kfs_pHead, elapsed);
+      applyKeyframes(pLegL, kfs_pLegL, elapsed);
+      applyKeyframes(pLegR, kfs_pLegR, elapsed);
+      applyKeyframes(pArmL, kfs_pArmL, elapsed);
+      applyKeyframes(pArmR, kfs_pArmR, elapsed);
+      // Gentle float above the ground
+      player.position.y = 0.55 + Math.sin(elapsed * 2.2) * 0.12;
+    }
+
+    player.scale.set(0.42, 0.42, 0.42);
+    player.position.set(0, 0.55, 8);
     scene.add(player);
 
     function createPetMesh(data) {
       const g = new THREE.Group();
+
+      // ===== Special: Zombify custom model + animation =====
+      if (data.shape === 'zombify') {
+        const scale = 0.28;
+        const mat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.15 });
+
+        const Cylinder_2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 32), mat(0x3dd68c));
+        Cylinder_2.position.set(0.0000, 3.3292, 0.0000);
+        Cylinder_2.castShadow = true; Cylinder_2.receiveShadow = true;
+        g.add(Cylinder_2);
+
+        const Box_3 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0x263e0f));
+        Box_3.position.set(-0.0045, 2.4123, 0.1546);
+        Box_3.rotation.set(-0.4978, 0.0000, 0.0000);
+        Box_3.scale.set(0.6687, 1.0000, 0.4943);
+        Box_3.castShadow = true; Box_3.receiveShadow = true;
+        g.add(Box_3);
+
+        const Box_4 = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0x96d35f));
+        Box_4.position.set(0.1621, 1.5648, 0.5147);
+        Box_4.scale.set(-0.3492, 1.0000, -0.2259);
+        Box_4.castShadow = true; Box_4.receiveShadow = true;
+        g.add(Box_4);
+
+        const Box_4_copy = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0x76bb40));
+        Box_4_copy.position.set(-0.1828, 1.5648, 0.5147);
+        Box_4_copy.scale.set(-0.3492, 1.0000, -0.2259);
+        Box_4_copy.castShadow = true; Box_4_copy.receiveShadow = true;
+        g.add(Box_4_copy);
+
+        const Box_4_copy_copy = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0x76bb40));
+        Box_4_copy_copy.position.set(0.1672, 1.5648, 0.0288);
+        Box_4_copy_copy.scale.set(-0.3492, 1.0000, -0.2259);
+        Box_4_copy_copy.castShadow = true; Box_4_copy_copy.receiveShadow = true;
+        g.add(Box_4_copy_copy);
+
+        const Box_4_copy_copy_copy = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0x96d35f));
+        Box_4_copy_copy_copy.position.set(-0.2093, 1.5648, 0.0288);
+        Box_4_copy_copy_copy.scale.set(-0.3492, 1.0000, -0.2259);
+        Box_4_copy_copy_copy.castShadow = true; Box_4_copy_copy_copy.receiveShadow = true;
+        g.add(Box_4_copy_copy_copy);
+
+        // Glow ring
+        const ring = new THREE.Mesh(
+          new THREE.RingGeometry(0.9, 1.2, 24),
+          new THREE.MeshBasicMaterial({ color: 0x39ff14, transparent: true, opacity: 0.55, side: THREE.DoubleSide })
+        );
+        ring.rotation.x = -Math.PI/2; ring.position.y = 0.05;
+        g.add(ring);
+
+        g.scale.set(scale, scale, scale);
+        g.userData = { petId: data.id, bob: Math.random()*Math.PI*2, isZombify: true, spin: 0 };
+        return g;
+      }
+
       const c = data.color;
       const s = 0.5 + (RARITIES[data.rarity].order * 0.035);
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.7*s, 0.5*s, 0.55*s), new THREE.MeshLambertMaterial({color:c}));
@@ -674,7 +1063,7 @@
       document.getElementById('moneyVal').textContent = formatMoney(money);
       document.getElementById('incomeVal').textContent = `+${formatMoney(totalIncome)} /s`;
       const ownedCount = Object.values(owned).reduce((a,b)=>a+b,0);
-      document.getElementById('ownedVal').textContent = `${ownedCount} / 94`;
+      document.getElementById('ownedVal').textContent = `${ownedCount} / 95`;
     }
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -704,7 +1093,8 @@
       const rarities = ['All', ...Object.keys(RARITIES)];
       tabsEl.innerHTML = rarities.map(r => `<div class="tab ${r===tab?'active':''}" data-r="${r}">${r}</div>`).join('');
       tabsEl.querySelectorAll('.tab').forEach(el => el.onclick = () => renderShop(el.dataset.r));
-      const filtered = tab === 'All' ? PET_DATA : PET_DATA.filter(p => p.rarity === tab);
+      const filtered = (tab === 'All' ? PET_DATA : PET_DATA.filter(p => p.rarity === tab))
+        .filter(p => !p.machineOnly); // hide machine-only pets from shop
       listEl.innerHTML = filtered.map(p => {
         const r = RARITIES[p.rarity];
         const cnt = owned[p.id] || 0;
@@ -718,6 +1108,19 @@
           </button>
         </div>`;
       }).join('');
+      // Show owned Zombify info if any
+      if (tab === 'All' || tab === 'OG') {
+        const z = PET_DATA[94];
+        const zc = owned[94] || 0;
+        if (z) {
+          listEl.innerHTML += `<div class="petCard ${zc>0?'owned':''}" style="border-color:#39ff14;">
+            <div class="rarity" style="color:#39ff14;">OG • MACHINE ONLY</div>
+            <div class="name">Zombify</div>
+            <div class="stats">Income: +20M/s<br>Owned: ${zc}<br>Get via Fusion Machine (5 Omegas, 1%)</div>
+            <button class="buyBtn" disabled style="background:#1a3a1a;color:#39ff14;">Machine Only</button>
+          </div>`;
+        }
+      }
       listEl.querySelectorAll('.buyBtn').forEach(btn => btn.onclick = () => buyPet(+btn.dataset.id));
     }
 
@@ -787,6 +1190,326 @@
       showToast('Progress loaded!');
       document.getElementById('saveOverlay').classList.remove('open');
     };
+
+    // ===================== FUSION MACHINE =====================
+    let machineDeposit = []; // array of omega pet ids deposited
+
+    function countOwnedOmegas() {
+      let n = 0;
+      for (const id of [92, 93]) n += (owned[id] || 0);
+      return n;
+    }
+
+    function renderMachineUI() {
+      const slots = document.getElementById('machineSlots');
+      const countEl = document.getElementById('machineCount');
+      const list = document.getElementById('omegaList');
+      const status = document.getElementById('machineStatus');
+
+      slots.innerHTML = machineDeposit.map((id, i) => {
+        const p = PET_DATA[id];
+        return `<div class="slotChip">#${i+1} ${p ? p.name : id}</div>`;
+      }).join('') || '<span style="color:#666;font-size:12px;">Empty — deposit Omegas below</span>';
+
+      countEl.textContent = machineDeposit.length + ' / 5';
+      countEl.style.color = machineDeposit.length >= 5 ? '#39ff14' : '#ffd700';
+
+      // Available omegas (owned minus already deposited)
+      const avail = {};
+      for (const id of [92, 93]) {
+        const total = owned[id] || 0;
+        const used = machineDeposit.filter(x => x === id).length;
+        const left = total - used;
+        if (left > 0) avail[id] = left;
+      }
+      list.innerHTML = Object.keys(avail).length
+        ? Object.entries(avail).map(([id, left]) => {
+            const p = PET_DATA[id];
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #222;">
+              <span class="omegaChip">${p.name} ×${left}</span>
+            </div>`;
+          }).join('')
+        : '<span style="color:#666;font-size:12px;">No Omega pets available. Buy Omega Titan or Absolute Zero first.</span>';
+
+      status.textContent = machineDeposit.length >= 5
+        ? 'Ready to fuse! 1% chance for Zombify.'
+        : `Need ${5 - machineDeposit.length} more Omega(s). You own ${countOwnedOmegas()} total.`;
+    }
+
+    function openMachineUI() {
+      document.getElementById('machineOverlay').classList.add('open');
+      renderMachineUI();
+    }
+    document.getElementById('closeMachine').onclick = () => {
+      document.getElementById('machineOverlay').classList.remove('open');
+    };
+    document.getElementById('machineOverlay').addEventListener('click', e => {
+      if (e.target.id === 'machineOverlay') document.getElementById('machineOverlay').classList.remove('open');
+    });
+
+    // Click the 3D machine in the world to open UI
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    function onMachineClick(clientX, clientY) {
+      pointer.x = (clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObject(fusionMachine, true);
+      if (hits.length > 0) {
+        // Must be near the machine
+        const dist = player.position.distanceTo(fusionMachine.position);
+        if (dist > 8) {
+          showToast('Get closer to the machine!');
+          return;
+        }
+        openMachineUI();
+      }
+    }
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      if (document.querySelector('.open')) return; // UI open
+      onMachineClick(e.clientX, e.clientY);
+    });
+
+    // Show hint when near machine
+    function updateMachineHint() {
+      const hint = document.getElementById('machineHint');
+      if (!hint) return;
+      const dist = player.position.distanceTo(fusionMachine.position);
+      hint.style.display = (dist < 8 && !document.querySelector('.open')) ? 'block' : 'none';
+    }
+
+    document.getElementById('fuseResultOk').onclick = () => {
+      document.getElementById('fuseResultOverlay').classList.remove('open');
+    };
+    document.getElementById('fuseResultOverlay').addEventListener('click', e => {
+      if (e.target.id === 'fuseResultOverlay') document.getElementById('fuseResultOverlay').classList.remove('open');
+    });
+
+    function showFuseResult(success) {
+      const overlay = document.getElementById('fuseResultOverlay');
+      const panel = document.getElementById('fuseResultPanel');
+      const icon = document.getElementById('fuseResultIcon');
+      const title = document.getElementById('fuseResultTitle');
+      const sub = document.getElementById('fuseResultSub');
+      if (success) {
+        panel.className = 'success';
+        icon.textContent = '🧟';
+        title.textContent = 'YOU GOT ZOMBIFY!';
+        title.style.color = '#39ff14';
+        sub.textContent = 'OG tier • +20,000,000 / second\nHe emerged from the machine!';
+      } else {
+        panel.className = 'fail';
+        icon.textContent = '💨';
+        title.textContent = 'YOU GOT NOTHING';
+        title.style.color = '#ef5350';
+        sub.textContent = 'The fusion failed. Your 5 Omegas were consumed.\n1% chance — try again!';
+      }
+      overlay.classList.add('open');
+    }
+
+    // ===================== ADMIN PANEL (ilovecake1 only) =====================
+    function isAdmin() {
+      return currentUser && currentUser.username === 'ilovecake1';
+    }
+
+    function renderAdminPets() {
+      const list = document.getElementById('adminPetList');
+      if (!list) return;
+      list.innerHTML = PET_DATA.map(p => {
+        const r = RARITIES[p.rarity];
+        return `<button class="btn secondary" data-spawn="${p.id}" style="font-size:11px;padding:8px;text-align:left;line-height:1.3;">
+          <span style="color:${r.color};font-weight:800;">${p.rarity}</span><br>${p.name}
+        </button>`;
+      }).join('');
+      list.querySelectorAll('[data-spawn]').forEach(btn => {
+        btn.onclick = () => {
+          if (!isAdmin()) return;
+          const id = +btn.dataset.spawn;
+          const pet = PET_DATA[id];
+          if (!pet) return;
+          owned[id] = (owned[id] || 0) + 1;
+          calcTotalIncome();
+          updateHUD();
+          spawnPetOnPath(pet, 1);
+          saveProgress();
+          showToast('Admin spawned: ' + pet.name);
+        };
+      });
+    }
+
+    function renderAdminStats() {
+      if (!isAdmin()) return;
+      const accounts = getAccounts();
+      const names = Object.keys(accounts);
+      const bans = getBanList();
+      const statsEl = document.getElementById('adminStats');
+      const invEl = document.getElementById('adminInventoryList');
+      const banEl = document.getElementById('adminBanList');
+
+      let totalMoney = 0;
+      names.forEach(n => {
+        const s = accounts[n].save;
+        if (s && typeof s.money === 'number') totalMoney += s.money;
+      });
+
+      const onlineEl = document.getElementById('playerCount');
+      const onlineTxt = onlineEl ? onlineEl.textContent : '—';
+
+      if (statsEl) {
+        statsEl.innerHTML =
+          `<b style="color:#fff;">Accounts on this device:</b> ${names.length}<br>` +
+          `<b style="color:#fff;">Online (Classic Path):</b> ${onlineTxt}<br>` +
+          `<b style="color:#fff;">Banned:</b> ${bans.length}<br>` +
+          `<b style="color:#fff;">Combined money (all local accounts):</b> ${formatMoney(totalMoney)}`;
+      }
+
+      if (invEl) {
+        if (!names.length) {
+          invEl.innerHTML = '<span style="color:#666;font-size:12px;">No accounts yet on this browser.</span>';
+        } else {
+          invEl.innerHTML = names.map(n => {
+            const acc = accounts[n];
+            const save = acc.save || {};
+            const own = save.owned || {};
+            const mon = save.money || 0;
+            const petLines = Object.keys(own).map(id => {
+              const p = PET_DATA[id];
+              const nm = p ? p.name : ('#' + id);
+              return `${nm} ×${own[id]}`;
+            }).join(', ') || 'No pets';
+            const banned = isBanned(n);
+            return `<div style="background:#0f0f1a;border:1px solid ${banned?'#ef5350':'#333'};border-radius:10px;padding:10px;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <b style="color:${n==='ilovecake1'?'#ffd54f':'#90caf9'};">${n}${n==='ilovecake1'?' (ADMIN)':''}${banned?' 🚫':''}</b>
+                <span style="color:#ffd54f;font-weight:700;">${formatMoney(mon)}</span>
+              </div>
+              <div style="color:#aaa;font-size:11px;line-height:1.4;">${petLines}</div>
+              ${n !== 'ilovecake1' ? `<button class="btn close" data-ban="${n}" style="margin-top:8px;padding:6px 10px;font-size:11px;">${banned?'Unban':'Ban'} ${n}</button>` : ''}
+            </div>`;
+          }).join('');
+          invEl.querySelectorAll('[data-ban]').forEach(btn => {
+            btn.onclick = () => {
+              if (!isAdmin()) return;
+              const u = btn.dataset.ban;
+              let list = getBanList();
+              if (list.includes(u)) {
+                list = list.filter(x => x !== u);
+                showToast('Unbanned ' + u);
+              } else {
+                list.push(u);
+                showToast('Banned ' + u);
+                // If they are currently signed in somehow, kick on next action
+              }
+              setBanList(list);
+              renderAdminStats();
+            };
+          });
+        }
+      }
+
+      if (banEl) {
+        banEl.textContent = bans.length ? ('Banned: ' + bans.join(', ')) : 'No one banned yet.';
+      }
+    }
+
+    document.getElementById('adminBtn').onclick = () => {
+      if (!isAdmin()) { showToast('Access denied'); return; }
+      renderAdminPets();
+      renderAdminStats();
+      document.getElementById('adminOverlay').classList.add('open');
+    };
+    document.getElementById('closeAdmin').onclick = () => {
+      document.getElementById('adminOverlay').classList.remove('open');
+    };
+    document.getElementById('adminOverlay').addEventListener('click', e => {
+      if (e.target.id === 'adminOverlay') document.getElementById('adminOverlay').classList.remove('open');
+    });
+    document.getElementById('adminMoneyBtn').onclick = () => {
+      if (!isAdmin()) return;
+      money += 120000000000;
+      updateHUD();
+      saveProgress();
+      showToast('+$120 Billion added!');
+      renderAdminStats();
+    };
+    document.getElementById('banUserBtn').onclick = () => {
+      if (!isAdmin()) return;
+      const u = (document.getElementById('banUserInput').value || '').trim().toLowerCase();
+      if (!u) { showToast('Enter a username'); return; }
+      if (u === 'ilovecake1') { showToast('Cannot ban admin'); return; }
+      const list = getBanList();
+      if (list.includes(u)) { showToast('Already banned'); return; }
+      list.push(u);
+      setBanList(list);
+      document.getElementById('banUserInput').value = '';
+      showToast('Banned ' + u);
+      renderAdminStats();
+    };
+
+
+    document.getElementById('depositOmegaBtn').onclick = () => {
+      if (machineDeposit.length >= 5) { showToast('Machine full (5/5)'); return; }
+      // Prefer depositing Absolute Zero first, then Omega Titan
+      let deposited = false;
+      for (const id of [93, 92]) {
+        const total = owned[id] || 0;
+        const used = machineDeposit.filter(x => x === id).length;
+        if (total - used > 0) {
+          machineDeposit.push(id);
+          deposited = true;
+          break;
+        }
+      }
+      if (!deposited) showToast('No Omega pets left to deposit!');
+      else showToast('Deposited 1 Omega');
+      renderMachineUI();
+    };
+
+    document.getElementById('clearMachineBtn').onclick = () => {
+      machineDeposit = [];
+      renderMachineUI();
+      showToast('Deposit cleared');
+    };
+
+    document.getElementById('spinMachineBtn').onclick = () => {
+      if (machineDeposit.length < 5) {
+        showToast('Need 5 Omegas deposited!');
+        return;
+      }
+      for (const id of machineDeposit) {
+        owned[id] = (owned[id] || 0) - 1;
+        if (owned[id] <= 0) delete owned[id];
+      }
+      machineDeposit = [];
+
+      const roll = Math.random();
+      document.getElementById('machineOverlay').classList.remove('open');
+
+      if (roll < 0.01) {
+        owned[94] = (owned[94] || 0) + 1;
+        calcTotalIncome();
+        updateHUD();
+        // Spawn Zombify FROM the machine position onto the path
+        const mesh = createPetMesh(PET_DATA[94]);
+        mesh.position.copy(fusionMachine.position);
+        mesh.position.y = 0;
+        mesh.position.x += (Math.random()-0.5)*1.5;
+        mesh.userData.speed = 2.6 + RARITIES['OG'].order * 0.32;
+        mesh.userData.income = PET_DATA[94].baseIncome;
+        mesh.userData.data = PET_DATA[94];
+        scene.add(mesh);
+        activePets.push(mesh);
+        saveProgress();
+        showFuseResult(true);
+      } else {
+        calcTotalIncome();
+        updateHUD();
+        saveProgress();
+        showFuseResult(false);
+      }
+      renderMachineUI();
+    };
+
 
     const keys = {};
     window.addEventListener('keydown', e => { keys[e.code] = true; if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
@@ -886,9 +1609,147 @@
       saveProgress();
     })();
 
+    // ===== HOME SCREEN =====
+    function updateHomeAccount() {
+      const el = document.getElementById('homeAccount');
+      if (!el) return;
+      if (currentUser) el.textContent = 'Signed in as ' + currentUser.username;
+      else el.textContent = 'Playing as Guest — create an account in-game to save';
+    }
+    updateHomeAccount();
+
+    let gameStarted = false;
+    // REAL shared player count — removes you when tab closes
+    const ONLINE_KEY = 'petpathtycoon_classic_online_v1';
+    const PLAYS_KEY = 'petpathtycoon_classic_plays_v1';
+    const COUNT_API = 'https://countapi.mileshilliard.com/api/v1';
+    let countedOnline = false;
+    let lastKnownOnline = 0;
+
+    async function countApiGet(key) {
+      try {
+        const r = await fetch(COUNT_API + '/get/' + encodeURIComponent(key), { cache: 'no-store' });
+        const j = await r.json();
+        const v = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
+        return Number.isFinite(v) ? v : 0;
+      } catch { return null; }
+    }
+    async function countApiSet(key, value) {
+      try {
+        const v = Math.max(0, Math.floor(value));
+        const r = await fetch(COUNT_API + '/set/' + encodeURIComponent(key) + '?value=' + v, { cache: 'no-store' });
+        const j = await r.json();
+        const n = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
+        return Number.isFinite(n) ? n : v;
+      } catch { return null; }
+    }
+    async function countApiHit(key) {
+      try {
+        const r = await fetch(COUNT_API + '/hit/' + encodeURIComponent(key), { cache: 'no-store' });
+        const j = await r.json();
+        const n = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
+        return Number.isFinite(n) ? n : null;
+      } catch { return null; }
+    }
+
+    // Fire-and-forget set that SURVIVES tab close (keepalive)
+    function countApiSetKeepalive(key, value) {
+      const v = Math.max(0, Math.floor(value));
+      const url = COUNT_API + '/set/' + encodeURIComponent(key) + '?value=' + v;
+      try {
+        fetch(url, { method: 'GET', keepalive: true, cache: 'no-store' }).catch(() => {});
+      } catch (e) {}
+      // Extra attempt via Image beacon (also works on many mobile browsers when closing)
+      try {
+        const img = new Image();
+        img.src = url + '&_t=' + Date.now();
+      } catch (e) {}
+    }
+
+    async function refreshPlayerCount() {
+      const el = document.getElementById('playerCount');
+      if (!el) return;
+      const n = await countApiGet(ONLINE_KEY);
+      if (n === null) {
+        el.textContent = '…';
+        return;
+      }
+      lastKnownOnline = n;
+      el.textContent = String(Math.max(0, n));
+    }
+
+    async function joinOnlineCount() {
+      if (countedOnline) return;
+      let n = await countApiGet(ONLINE_KEY);
+      if (n === null) n = 0;
+      const next = n + 1;
+      const setVal = await countApiSet(ONLINE_KEY, next);
+      lastKnownOnline = setVal !== null ? setVal : next;
+      countedOnline = true;
+      countApiHit(PLAYS_KEY);
+      await refreshPlayerCount();
+    }
+
+    function leaveOnlineCount() {
+      if (!countedOnline) return;
+      countedOnline = false;
+      const next = Math.max(0, (lastKnownOnline || 1) - 1);
+      lastKnownOnline = next;
+      // Must use keepalive so the request still sends after tab is closed
+      countApiSetKeepalive(ONLINE_KEY, next);
+      const el = document.getElementById('playerCount');
+      if (el) el.textContent = String(next);
+    }
+
+    refreshPlayerCount();
+    setInterval(refreshPlayerCount, 8000);
+
+    // pagehide is the most reliable "tab closed / navigated away" event (works on mobile too)
+    window.addEventListener('pagehide', leaveOnlineCount);
+    window.addEventListener('beforeunload', leaveOnlineCount);
+    window.addEventListener('unload', leaveOnlineCount);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        leaveOnlineCount();
+      } else if (document.visibilityState === 'visible' && gameStarted && !countedOnline) {
+        joinOnlineCount();
+      }
+    });
+
+    // Hide game UI until play
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('controls').style.display = 'none';
+    const hintEl = document.getElementById('hint');
+    if (hintEl) hintEl.style.display = 'none';
+    const mHint = document.getElementById('machineHint');
+    if (mHint) mHint.style.display = 'none';
+
+    // gameStarted already declared above with count API
+    document.getElementById('playBtn').onclick = () => {
+      document.getElementById('homeScreen').classList.add('hidden');
+      document.getElementById('hud').style.display = '';
+      document.getElementById('controls').style.display = '';
+      if (hintEl) hintEl.style.display = '';
+      gameStarted = true;
+      updateHUD();
+      updateAccountUI();
+      saveProgress();
+      joinOnlineCount(); // real +1 to global online players
+      showToast('Welcome to Classic Path!');
+    };
+
+    // Also refresh home account label when user signs in from game later (if they go back — N/A)
+    const _origUpdateAccountUI = updateAccountUI;
+    updateAccountUI = function() {
+      _origUpdateAccountUI();
+      updateHomeAccount();
+    };
+
     function animate() {
       requestAnimationFrame(animate);
       const dt = Math.min(clock.getDelta(), 0.05);
+      updateEditorAnimations(clock.getElapsedTime());
+      updatePlayerAnimations(clock.getElapsedTime());
       incomeAcc += totalIncome * dt;
       if (incomeAcc >= 1) {
         const add = Math.floor(incomeAcc);
@@ -900,8 +1761,15 @@
         const m = activePets[i];
         m.position.z -= m.userData.speed * dt;
         m.userData.bob += dt * 8;
-        m.position.y = Math.abs(Math.sin(m.userData.bob)) * 0.08;
-        m.rotation.y = Math.PI;
+        if (m.userData.isZombify) {
+          // Special Zombify animation: higher bob + slow spin
+          m.position.y = Math.abs(Math.sin(m.userData.bob * 1.2)) * 0.18;
+          m.userData.spin = (m.userData.spin || 0) + dt * 1.5;
+          m.rotation.y = Math.PI + Math.sin(m.userData.spin) * 0.35;
+        } else {
+          m.position.y = Math.abs(Math.sin(m.userData.bob)) * 0.08;
+          m.rotation.y = Math.PI;
+        }
         if (m.position.z < PATH_END_Z) {
           recyclePet(m);
           if (RARITIES[m.userData.data.rarity].order >= 6 && Math.random() < 0.06)
@@ -922,13 +1790,12 @@
         else if (canMove(player.position.x+mx, player.position.z)) player.position.x += mx;
         else if (canMove(player.position.x, player.position.z+mz)) player.position.z += mz;
         player.rotation.y = Math.atan2(dx, dz);
-        legL.position.y = 0.2 + Math.sin(performance.now()*0.012)*0.12;
-        legR.position.y = 0.2 + Math.sin(performance.now()*0.012+Math.PI)*0.12;
-      } else { legL.position.y = 0.2; legR.position.y = 0.2; }
+      }
       const targetCam = player.position.clone().add(camOffset);
       camPos.lerp(targetCam, 1 - Math.exp(-4*dt));
       camera.position.copy(camPos);
       camera.lookAt(player.position.x, 1.2, player.position.z);
+      updateMachineHint();
       renderer.render(scene, camera);
     }
     animate();
