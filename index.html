@@ -627,6 +627,8 @@
     }
     function signOut() {
       saveProgress();
+      // Go offline when signing out
+      try { if (typeof leaveOnlineCount === 'function') leaveOnlineCount(); } catch(e) {}
       currentUser = null;
       money = 25; owned = { 0: 1 };
       activePets.forEach(m => scene.remove(m));
@@ -635,7 +637,7 @@
       calcTotalIncome();
       updateHUD();
       updateAccountUI();
-      showToast('Signed out. Playing as Guest.');
+      showToast('Signed out. You are offline.');
     }
     function updateAccountUI() {
       const nameEl = document.getElementById('accountName');
@@ -1619,12 +1621,15 @@
     updateHomeAccount();
 
     let gameStarted = false;
-    // REAL shared player count — removes you when tab closes
+    // REAL shared player count — removes you when tab closes / idle / sign-out
     const ONLINE_KEY = 'petpathtycoon_classic_online_v1';
     const PLAYS_KEY = 'petpathtycoon_classic_plays_v1';
     const COUNT_API = 'https://countapi.mileshilliard.com/api/v1';
+    const IDLE_MS = 45000; // 45 seconds without interaction = offline
     let countedOnline = false;
     let lastKnownOnline = 0;
+    let lastActivityAt = Date.now();
+    let idleTimer = null;
 
     async function countApiGet(key) {
       try {
@@ -1680,6 +1685,7 @@
 
     async function joinOnlineCount() {
       if (countedOnline) return;
+      if (!gameStarted) return;
       let n = await countApiGet(ONLINE_KEY);
       if (n === null) n = 0;
       const next = n + 1;
@@ -1695,25 +1701,45 @@
       countedOnline = false;
       const next = Math.max(0, (lastKnownOnline || 1) - 1);
       lastKnownOnline = next;
-      // Must use keepalive so the request still sends after tab is closed
       countApiSetKeepalive(ONLINE_KEY, next);
       const el = document.getElementById('playerCount');
       if (el) el.textContent = String(next);
     }
 
+    function noteActivity() {
+      lastActivityAt = Date.now();
+      if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
+      // Rejoin online if we were idle-offline but still in game
+      if (gameStarted && !countedOnline && document.visibilityState === 'visible') {
+        joinOnlineCount();
+      }
+      // Schedule idle offline
+      if (gameStarted) {
+        idleTimer = setTimeout(() => {
+          if (Date.now() - lastActivityAt >= IDLE_MS - 50) {
+            leaveOnlineCount();
+          }
+        }, IDLE_MS);
+      }
+    }
+
     refreshPlayerCount();
     setInterval(refreshPlayerCount, 8000);
 
-    // pagehide is the most reliable "tab closed / navigated away" event (works on mobile too)
     window.addEventListener('pagehide', leaveOnlineCount);
     window.addEventListener('beforeunload', leaveOnlineCount);
     window.addEventListener('unload', leaveOnlineCount);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
         leaveOnlineCount();
-      } else if (document.visibilityState === 'visible' && gameStarted && !countedOnline) {
-        joinOnlineCount();
+      } else if (document.visibilityState === 'visible' && gameStarted) {
+        noteActivity(); // marks activity and rejoins online
       }
+    });
+
+    // Any real interaction keeps you online
+    ['pointerdown', 'keydown', 'touchstart', 'mousemove', 'wheel'].forEach(ev => {
+      window.addEventListener(ev, () => { if (gameStarted) noteActivity(); }, { passive: true });
     });
 
     // Hide game UI until play
@@ -1734,7 +1760,7 @@
       updateHUD();
       updateAccountUI();
       saveProgress();
-      joinOnlineCount(); // real +1 to global online players
+      noteActivity(); // join online + start idle timer
       showToast('Welcome to Classic Path!');
     };
 
