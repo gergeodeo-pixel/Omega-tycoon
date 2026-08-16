@@ -645,8 +645,9 @@
           setAccounts(accounts);
           localStorage.setItem(STORAGE_KEY + '_last', currentUser.username);
         }
+        cloudSaveProgress(currentUser.username, data);
+        lastCloudTs = data.ts || Date.now();
       } else {
-        // Save under guest_#### so admin can edit guest progress
         const gid = ensureGuestId();
         if (gid) {
           const guests = getGuests();
@@ -655,6 +656,8 @@
           guests[gid].lastSeen = Date.now();
           setGuests(guests);
           localStorage.setItem(STORAGE_KEY + '_guestId', gid);
+          cloudSaveProgress(gid, data);
+          lastCloudTs = data.ts || Date.now();
         }
       }
     }
@@ -788,6 +791,41 @@
       }
     }
 
+    async function cloudSaveProgress(id, data) {
+      if (!id) return;
+      try {
+        await fbPut('saves/' + safeId(id), data || getSaveData());
+      } catch (e) {}
+    }
+    async function cloudLoadProgress(id) {
+      if (!id) return null;
+      try {
+        const data = await fbGet('saves/' + safeId(id));
+        if (data && typeof data.money === 'number') return data;
+      } catch (e) {}
+      return null;
+    }
+    // Apply remote admin edits while playing
+    let lastCloudTs = 0;
+    async function pullCloudSaveIfNewer() {
+      const id = activeIdentity();
+      if (!id || !gameStarted) return;
+      const data = await cloudLoadProgress(id);
+      if (!data || typeof data.money !== 'number') return;
+      const ts = data.ts || 0;
+      if (ts && ts <= lastCloudTs) return;
+      // Only apply if remote is meaningfully different (admin edit)
+      if (Math.floor(data.money) !== Math.floor(money) || JSON.stringify(data.owned || {}) !== JSON.stringify(owned)) {
+        applySaveData(data);
+        lastCloudTs = ts || Date.now();
+        saveProgress(); // keep local in sync
+        showToast('Save updated (admin/cloud)');
+      } else if (ts > lastCloudTs) {
+        lastCloudTs = ts;
+      }
+    }
+
+
     async function createAccount(username, password, email) {
       username = (username || '').trim().toLowerCase();
       if (username.length < 3) { showToast('Username too short (min 3)'); return false; }
@@ -863,6 +901,14 @@
 
       loadProgressForUser(username);
       if (acc.save) applySaveData(acc.save);
+      // Prefer newer Firebase save (admin edits / other device)
+      try {
+        const remote = await cloudLoadProgress(username);
+        if (remote && typeof remote.money === 'number') {
+          const localTs = (acc.save && acc.save.ts) || 0;
+          if ((remote.ts || 0) >= localTs) applySaveData(remote);
+        }
+      } catch (e) {}
       saveProgress();
       markUserOnline(username);
       await startCloudSession(username);
@@ -1948,30 +1994,36 @@
               const kind = btn.dataset.kind || 'account';
               const input = invEl.querySelector(`[data-money-user="${u}"]`);
               const val = Math.max(0, Math.floor(Number(input && input.value) || 0));
+              let saveObj = { owned: {}, version: 3, powers: { light:0, teleport:0, shield:0 } };
               if (kind === 'guest') {
                 const guests = getGuests();
                 guests[u] = guests[u] || { created: Date.now() };
-                guests[u].save = guests[u].save || { owned: {}, version: 3 };
+                guests[u].save = guests[u].save || saveObj;
                 guests[u].save.money = val;
                 guests[u].save.ts = Date.now();
                 guests[u].lastSeen = Date.now();
+                saveObj = guests[u].save;
                 setGuests(guests);
               } else {
                 const accounts = getAccounts();
-                if (!accounts[u]) return;
-                accounts[u].save = accounts[u].save || { owned: {}, version: 3 };
+                if (!accounts[u]) {
+                  accounts[u] = { passwordHash: '', email: '', created: Date.now(), save: saveObj };
+                }
+                accounts[u].save = accounts[u].save || saveObj;
                 accounts[u].save.money = val;
                 accounts[u].save.ts = Date.now();
+                saveObj = accounts[u].save;
                 setAccounts(accounts);
               }
-              // Live apply if current session matches
+              // LIVE: write to Firebase so their device picks it up
+              cloudSaveProgress(u, saveObj);
               if ((currentUser && currentUser.username === u) || (!currentUser && guestId === u)) {
                 money = val;
                 updateHUD();
                 saveProgress();
               }
               pushActivity('edit', u, 'money=' + val);
-              showToast('Set ' + u + ' money to ' + formatMoney(val));
+              showToast('Set ' + u + ' money to ' + formatMoney(val) + ' (live)');
               renderAdminStats();
             };
           });
@@ -1980,21 +2032,25 @@
               if (!isAdmin()) return;
               const u = btn.dataset.wipe;
               const kind = btn.dataset.kind || 'account';
+              let saveObj = { money: 0, owned: {}, version: 3, powers: { light:0, teleport:0, shield:0 }, ts: Date.now() };
               if (kind === 'guest') {
                 const guests = getGuests();
                 guests[u] = guests[u] || { created: Date.now() };
-                guests[u].save = guests[u].save || {};
+                guests[u].save = guests[u].save || { money: 0 };
                 guests[u].save.owned = {};
                 guests[u].save.ts = Date.now();
+                saveObj = guests[u].save;
                 setGuests(guests);
               } else {
                 const accounts = getAccounts();
                 if (!accounts[u]) return;
-                accounts[u].save = accounts[u].save || {};
+                accounts[u].save = accounts[u].save || { money: 0 };
                 accounts[u].save.owned = {};
                 accounts[u].save.ts = Date.now();
+                saveObj = accounts[u].save;
                 setAccounts(accounts);
               }
+              cloudSaveProgress(u, saveObj);
               if ((currentUser && currentUser.username === u) || (!currentUser && guestId === u)) {
                 owned = {};
                 activePets.forEach(m => scene.remove(m));
@@ -2004,7 +2060,7 @@
                 saveProgress();
               }
               pushActivity('edit', u, 'wipe pets');
-              showToast('Wiped pets for ' + u);
+              showToast('Wiped pets for ' + u + ' (live)');
               renderAdminStats();
             };
           });
@@ -2049,11 +2105,34 @@
         setPresence(p);
       } catch (e) {}
     }
+    async function pullFirebaseSavesIntoAdmin() {
+      try {
+        const data = await fbGet('saves');
+        if (!data || typeof data !== 'object') return;
+        const accounts = getAccounts();
+        const guests = getGuests();
+        Object.keys(data).forEach(id => {
+          const save = data[id];
+          if (!save || typeof save.money !== 'number') return;
+          if (id.startsWith('guest_')) {
+            guests[id] = guests[id] || { created: Date.now() };
+            guests[id].save = save;
+            guests[id].lastSeen = Date.now();
+          } else {
+            accounts[id] = accounts[id] || { passwordHash: '', email: '', created: Date.now() };
+            accounts[id].save = save;
+          }
+        });
+        setAccounts(accounts);
+        setGuests(guests);
+      } catch (e) {}
+    }
 
     document.getElementById('adminBtn').onclick = async () => {
       if (!canOpenAdmin()) { showToast('Access denied'); return; }
       if (isAdmin()) {
         await pullFirebasePresence();
+        await pullFirebaseSavesIntoAdmin();
         // Full admin
         document.getElementById('adminHeader').querySelector('h2').textContent = '⚡ Live Admin — cakecheeks22';
         document.getElementById('adminMoneyBtn').style.display = '';
@@ -2125,6 +2204,7 @@
       const ov = document.getElementById('adminOverlay');
       if (ov && ov.classList.contains('open') && isAdmin()) {
         await pullFirebasePresence();
+        await pullFirebaseSavesIntoAdmin();
         renderAdminStats();
       }
     }, 4000);
@@ -2663,6 +2743,8 @@
     });
     // Also save more often while playing
     setInterval(forceSave, 4000);
+    // Pull admin/cloud money edits
+    setInterval(() => { if (gameStarted) pullCloudSaveIfNewer(); }, 5000);
   </script>
 </body>
 </html>
