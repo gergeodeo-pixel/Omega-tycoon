@@ -243,6 +243,19 @@
   <div id="teleportBtn" style="display:none;position:absolute;right:16px;bottom:100px;width:64px;height:64px;border-radius:50%;background:rgba(128,216,255,0.35);border:2px solid rgba(128,216,255,0.8);color:#e0f7fa;font-weight:800;font-size:12px;z-index:8;align-items:center;justify-content:center;text-align:center;line-height:64px;touch-action:none;">TP</div>
   <div id="toast"></div>
 
+  <!-- Multiplayer chat + locator -->
+  <div id="mpChat" style="display:none;position:absolute;left:10px;bottom:220px;width:min(280px,70vw);z-index:45;pointer-events:auto;">
+    <div id="mpChatLog" style="max-height:140px;overflow-y:auto;background:rgba(0,0,0,0.55);border-radius:12px;padding:8px;font-size:12px;color:#eee;margin-bottom:6px;border:1px solid rgba(255,255,255,0.12);"></div>
+    <div style="display:flex;gap:6px;">
+      <input id="mpChatInput" maxlength="80" placeholder="Say something…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid #444;background:#111;color:#fff;font-size:13px;">
+      <button id="mpChatSend" class="btn" style="padding:8px 12px;font-size:12px;">Send</button>
+    </div>
+  </div>
+  <div id="mpLocator" style="display:none;position:absolute;top:100px;right:10px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.45);border:2px solid rgba(129,199,132,0.6);z-index:45;pointer-events:none;">
+    <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#81c784;font-weight:700;">LOCATOR</div>
+    <div id="mpLocDots"></div>
+  </div>
+
   <!-- Fusion Machine UI -->
   <div id="machineOverlay">
     <div id="machinePanel">
@@ -2716,24 +2729,57 @@
     let lastWaveAt = 0;
 
     function makeRemotePlayerMesh(name, colorHex) {
+      // Same style as local player (floating editor character)
       const g = new THREE.Group();
-      const body = new THREE.Mesh(
-        new THREE.BoxGeometry(0.55, 0.85, 0.4),
-        new THREE.MeshLambertMaterial({ color: colorHex || 0x90caf9 })
+      const mat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.15 });
+      const accent = colorHex || 0x4f8cff;
+
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(accent));
+      torso.position.set(0, 3.085, 0);
+      torso.scale.set(-0.4884, 1.0283, 0.1523);
+      torso.castShadow = true; g.add(torso);
+
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16), mat(0xff5c8a));
+      head.position.set(0.01, 3.925, 0.02);
+      head.scale.set(1.0283, 1.0283, 1.0283);
+      head.castShadow = true; g.add(head);
+
+      const legL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
+      legL.position.set(-0.14, 1.60, -0.05);
+      legL.rotation.set(0.09, 0, 0);
+      legL.scale.set(0.34, 2.77, 0.12);
+      legL.castShadow = true; g.add(legL);
+
+      const legR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
+      legR.position.set(0.14, 1.72, -0.02);
+      legR.rotation.set(0.09, 0, 0);
+      legR.scale.set(0.34, 2.77, 0.12);
+      legR.castShadow = true; g.add(legR);
+
+      const armL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
+      armL.position.set(-0.76, 2.37, 0.53);
+      armL.rotation.set(-0.75, -0.47, -0.58);
+      armL.scale.set(0.34, 2.77, 0.12);
+      armL.castShadow = true; g.add(armL);
+
+      const armR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
+      armR.position.set(0.87, 2.22, 0.63);
+      armR.rotation.set(-1.16, 0.84, 0.86);
+      armR.scale.set(0.34, 2.77, 0.12);
+      armR.castShadow = true; g.add(armR);
+
+      // floating ring marker
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.7, 0.95, 20),
+        new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
       );
-      body.position.y = 0.9; body.castShadow = true; g.add(body);
-      const head = new THREE.Mesh(
-        new THREE.BoxGeometry(0.4, 0.4, 0.4),
-        new THREE.MeshLambertMaterial({ color: 0xffcc80 })
-      );
-      head.position.y = 1.55; head.castShadow = true; g.add(head);
-      // name plate (simple box marker)
-      const tag = new THREE.Mesh(
-        new THREE.BoxGeometry(0.7, 0.12, 0.05),
-        new THREE.MeshBasicMaterial({ color: 0x111111 })
-      );
-      tag.position.y = 2.0; g.add(tag);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.08;
+      g.add(ring);
+
+      g.scale.set(0.42, 0.42, 0.42);
       g.userData.name = name;
+      g.userData.bob = Math.random() * Math.PI * 2;
       return g;
     }
     function colorForId(id) {
@@ -2810,6 +2856,10 @@
       currentServerId = null;
       if (mpSyncTimer) { clearInterval(mpSyncTimer); mpSyncTimer = null; }
       if (mpPollTimer) { clearInterval(mpPollTimer); mpPollTimer = null; }
+      const chat = document.getElementById('mpChat');
+      const loc = document.getElementById('mpLocator');
+      if (chat) chat.style.display = 'none';
+      if (loc) loc.style.display = 'none';
     }
 
     function pushMyPosition() {
@@ -2838,8 +2888,8 @@
         Object.keys(data).forEach(pid => {
           const p = data[pid];
           if (!p || !p.lastSeen) return;
-          if (now - p.lastSeen > 90000) return; // stale
-          if (safeId(p.id || pid) === safeId(myId)) return; // me
+          if (now - p.lastSeen > 90000) return;
+          if (safeId(p.id || pid) === safeId(myId)) return;
           seen.add(pid);
           if (!remotePlayers[pid]) {
             const mesh = makeRemotePlayerMesh(p.name || pid, colorForId(pid));
@@ -2848,15 +2898,15 @@
             showToast((p.name || pid) + ' joined');
           }
           const rp = remotePlayers[pid];
-          // smooth-ish snap
           rp.mesh.position.x = p.x || 0;
-          rp.mesh.position.y = (p.y != null ? p.y : 0.55);
           rp.mesh.position.z = p.z || 0;
           rp.mesh.rotation.y = p.rot || 0;
+          // match local float height
+          rp.mesh.userData.bob = (rp.mesh.userData.bob || 0) + 0.08;
+          rp.mesh.position.y = 0.55 + Math.sin(rp.mesh.userData.bob) * 0.12;
           rp.lastSeen = p.lastSeen;
         });
       }
-      // remove gone
       Object.keys(remotePlayers).forEach(pid => {
         if (!seen.has(pid)) {
           scene.remove(remotePlayers[pid].mesh);
@@ -2864,7 +2914,6 @@
           delete remotePlayers[pid];
         }
       });
-      // proximity wave interact
       Object.keys(remotePlayers).forEach(pid => {
         const rp = remotePlayers[pid];
         const d = player.position.distanceTo(rp.mesh.position);
@@ -2873,10 +2922,88 @@
           showToast('👋 Hi ' + (rp.name || pid) + '!');
         }
       });
-      // update home hint / hud server tag
       const n = Object.keys(remotePlayers).length + 1;
       const tag = document.getElementById('serverTag');
       if (tag) tag.textContent = (serverMode === 'solo' ? 'SOLO' : currentServerId) + ' · ' + n + '/' + (serverMode === 'solo' ? 1 : SERVER_MAX);
+      updateLocator();
+    }
+
+    function updateLocator() {
+      const box = document.getElementById('mpLocator');
+      const dots = document.getElementById('mpLocDots');
+      if (!box || !dots) return;
+      if (serverMode === 'solo' || !Object.keys(remotePlayers).length) {
+        box.style.display = gameStarted && serverMode !== 'solo' ? 'block' : (gameStarted ? 'block' : 'none');
+        if (!Object.keys(remotePlayers).length) {
+          dots.innerHTML = '<div style="position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:#39ff14;"></div>';
+          return;
+        }
+      }
+      box.style.display = 'block';
+      const cx = 60, cy = 60, R = 48;
+      // center = you, dots = others relative in XZ
+      let html = '<div style="position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px;border-radius:50%;background:#39ff14;box-shadow:0 0 6px #39ff14;"></div>';
+      Object.keys(remotePlayers).forEach(pid => {
+        const rp = remotePlayers[pid];
+        let dx = rp.mesh.position.x - player.position.x;
+        let dz = rp.mesh.position.z - player.position.z;
+        // rotate so "up" on radar is camera-forward-ish (player facing)
+        const ang = player.rotation.y;
+        const rx = dx * Math.cos(ang) - dz * Math.sin(ang);
+        const rz = dx * Math.sin(ang) + dz * Math.cos(ang);
+        const dist = Math.hypot(rx, rz);
+        const scale = Math.min(R, dist * 2.2);
+        const nx = dist > 0.01 ? (rx / dist) * scale : 0;
+        const nz = dist > 0.01 ? (rz / dist) * scale : 0;
+        // screen: +x right, +z down on radar (forward = up = -z world relative)
+        const left = cx + nx;
+        const top = cy + nz;
+        const col = '#' + colorForId(pid).toString(16).padStart(6, '0');
+        html += '<div title="'+rp.name+'" style="position:absolute;left:'+left+'px;top:'+top+'px;width:10px;height:10px;margin:-5px;border-radius:50%;background:'+col+';border:1px solid #fff;"></div>';
+      });
+      dots.innerHTML = html;
+    }
+
+    let lastChatTs = 0;
+    function appendChatLine(name, msg, mine) {
+      const log = document.getElementById('mpChatLog');
+      if (!log) return;
+      const div = document.createElement('div');
+      div.style.marginBottom = '4px';
+      div.innerHTML = '<b style="color:'+(mine?'#ffd54f':'#90caf9')+';">' + name + ':</b> ' + msg;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+    async function sendChat() {
+      if (!currentServerId || !gameStarted) return;
+      const input = document.getElementById('mpChatInput');
+      if (!input) return;
+      const msg = (input.value || '').trim();
+      if (!msg) return;
+      const myId = activeIdentity();
+      const key = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      await fbPut('servers/' + currentServerId + '/chat/' + key, {
+        name: myId,
+        msg: msg.slice(0, 80),
+        ts: Date.now()
+      });
+      input.value = '';
+      appendChatLine(myId, msg, true);
+      lastChatTs = Date.now();
+    }
+    async function pullChat() {
+      if (!currentServerId || !gameStarted) return;
+      const data = await fbGet('servers/' + currentServerId + '/chat');
+      if (!data || typeof data !== 'object') return;
+      const myId = activeIdentity();
+      const rows = Object.keys(data).map(k => data[k]).filter(Boolean);
+      rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      rows.forEach(row => {
+        if (!row.ts || row.ts <= lastChatTs) return;
+        if (row.name === myId) { lastChatTs = Math.max(lastChatTs, row.ts); return; }
+        appendChatLine(row.name || '?', row.msg || '', false);
+        lastChatTs = Math.max(lastChatTs, row.ts);
+      });
     }
 
     function startMultiplayerSync() {
@@ -2884,7 +3011,22 @@
       if (mpPollTimer) clearInterval(mpPollTimer);
       pushMyPosition();
       mpSyncTimer = setInterval(pushMyPosition, 300);
-      mpPollTimer = setInterval(pullRemotePlayers, 500);
+      mpPollTimer = setInterval(() => { pullRemotePlayers(); pullChat(); }, 500);
+      const chat = document.getElementById('mpChat');
+      const loc = document.getElementById('mpLocator');
+      if (chat) chat.style.display = serverMode === 'solo' ? 'none' : 'block';
+      if (loc) loc.style.display = 'block';
+      // bind chat once
+      const sendBtn = document.getElementById('mpChatSend');
+      const input = document.getElementById('mpChatInput');
+      if (sendBtn && !sendBtn._bound) {
+        sendBtn._bound = true;
+        sendBtn.onclick = () => sendChat();
+        input.addEventListener('keydown', e => {
+          if (e.code === 'Enter') { e.preventDefault(); sendChat(); }
+        });
+      }
+      lastChatTs = Date.now() - 1000;
     }
 
     async function refreshServerHint() {
