@@ -766,28 +766,32 @@
       }
     }
     async function startCloudSession(username) {
+      // works for accounts AND guests (guest_1234)
       if (!username) return;
+      const id = safeId(username);
       const exp = Math.floor(Date.now() / 1000) + 120;
-      await fbPut('sessions/' + safeId(username), exp);
-      // presence for admin
-      await fbPut('presence/' + safeId(username), { online: true, lastSeen: Date.now() });
+      await fbPut('sessions/' + id, exp);
+      await fbPut('presence/' + id, { online: true, lastSeen: Date.now(), name: username });
       if (sessionHeartbeat) clearInterval(sessionHeartbeat);
       sessionHeartbeat = setInterval(async () => {
-        if (!currentUser || currentUser.username !== username) {
+        const stillMe = (currentUser && currentUser.username === username) ||
+          (!currentUser && (guestId === username || activeIdentity() === username));
+        if (!stillMe || !gameStarted) {
           clearInterval(sessionHeartbeat);
           sessionHeartbeat = null;
           return;
         }
         const exp2 = Math.floor(Date.now() / 1000) + 120;
-        await fbPut('sessions/' + safeId(username), exp2);
-        await fbPut('presence/' + safeId(username), { online: true, lastSeen: Date.now() });
+        await fbPut('sessions/' + id, exp2);
+        await fbPut('presence/' + id, { online: true, lastSeen: Date.now(), name: username });
       }, 15000);
     }
     function endCloudSession(username) {
       if (sessionHeartbeat) { clearInterval(sessionHeartbeat); sessionHeartbeat = null; }
       if (username) {
-        fbPutKeepalive('sessions/' + safeId(username), 0);
-        fbPutKeepalive('presence/' + safeId(username), { online: false, lastSeen: Date.now() });
+        const id = safeId(username);
+        fbPutKeepalive('sessions/' + id, 0);
+        fbPutKeepalive('presence/' + id, { online: false, lastSeen: Date.now(), name: username });
       }
     }
 
@@ -1824,6 +1828,10 @@
       p[username] = { online: true, lastSeen: Date.now() };
       setPresence(p);
       pushActivity('login', username, 'online');
+      // LIVE for everyone including guests
+      try {
+        fbPut('presence/' + safeId(username), { online: true, lastSeen: Date.now(), name: username });
+      } catch (e) {}
     }
     function markUserOffline(username) {
       if (!username) return;
@@ -1834,6 +1842,9 @@
         setPresence(p);
       }
       pushActivity('offline', username, 'offline');
+      try {
+        fbPutKeepalive('presence/' + safeId(username), { online: false, lastSeen: Date.now(), name: username });
+      } catch (e) {}
     }
 
     // Lock admin account to official password so it cannot be stolen on this browser
@@ -2092,13 +2103,21 @@
     async function pullFirebasePresence() {
       try {
         const data = await fbGet('presence');
-        if (!data || typeof data !== 'object') return;
+        const sessions = await fbGet('sessions');
         const p = getPresence();
         const now = Date.now();
-        Object.keys(data).forEach(u => {
-          const row = data[u] || {};
+        const nowSec = Math.floor(now / 1000);
+        const ids = new Set([
+          ...Object.keys(data || {}),
+          ...Object.keys(sessions || {})
+        ]);
+        ids.forEach(u => {
+          const row = (data && data[u]) || {};
+          const exp = parseInt((sessions && sessions[u]) || 0, 10) || 0;
+          const fresh = !!row.online && (now - (row.lastSeen || 0) < 120000);
+          const sessLive = exp > nowSec;
           p[u] = {
-            online: !!row.online && (now - (row.lastSeen || 0) < 120000),
+            online: fresh || sessLive,
             lastSeen: row.lastSeen || now
           };
         });
@@ -2550,10 +2569,12 @@
       const el = document.getElementById('playerCount');
       if (el) el.textContent = String(next);
       try {
-        const id = currentUser ? currentUser.username : guestId;
-        if (id) markUserOffline(id);
+        const id = currentUser ? currentUser.username : (guestId || activeIdentity());
+        if (id) {
+          markUserOffline(id);
+          endCloudSession(id);
+        }
       } catch(e) {}
-      try { if (currentUser) endCloudSession(currentUser.username); } catch(e) {}
     }
 
     function noteActivity() {
@@ -2624,10 +2645,12 @@
       try { updateAccountUI(); } catch (err) {}
       try { saveProgress(); } catch (err) {}
       try { noteActivity(); } catch (err) {}
-      try { if (currentUser) startCloudSession(currentUser.username); } catch (err) {}
       try {
         const id = activeIdentity();
-        if (id) markUserOnline(id);
+        if (id) {
+          markUserOnline(id);
+          startCloudSession(id); // guests + accounts both live on Firebase
+        }
       } catch (err) {}
       const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
       if (joyWrap) joyWrap.style.display = isTouch ? 'block' : 'none';
