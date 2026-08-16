@@ -7,11 +7,11 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; background: #0a0a14; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
-    canvas { display: block; position: absolute; inset: 0; z-index: 1; pointer-events: auto; }
+    canvas { display: block; }
+    canvas#avatarPreview { position: relative !important; inset: auto !important; z-index: 1 !important; pointer-events: none !important; }
     #homeScreen, #hud, #controls, #hint, #toast, #joyWrap, #teleportBtn, #machineHint { pointer-events: auto; }
-    #homeScreen { z-index: 200 !important; }
     #homeScreen {
-      position: absolute; inset: 0; z-index: 100;
+      position: absolute; inset: 0; z-index: 250 !important; pointer-events: auto !important;
       background: linear-gradient(160deg, #0f0c29 0%, #302b63 45%, #24243e 100%);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: 20px; overflow-y: auto;
@@ -200,10 +200,10 @@
         <div class="players-online"><span class="dot"></span> <span id="playerCount">—</span> online</div>
         <span class="mode-tag">MAX 10</span>
       </div>
-      <button id="playBtn">▶  Join Public</button>
-      <button id="soloBtn" style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:14px;background:linear-gradient(180deg,#5c6bc0,#3949ab);color:#fff;font-size:15px;font-weight:800;cursor:pointer;">🏠 Solo Server</button>
+      <button type="button" id="playBtn" style="position:relative;z-index:40;pointer-events:auto;">▶  Join Public</button>
+      <button type="button" id="soloBtn" style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:14px;background:linear-gradient(180deg,#5c6bc0,#3949ab);color:#fff;font-size:15px;font-weight:800;cursor:pointer;position:relative;z-index:40;pointer-events:auto;">🏠 Solo Server</button>
       <div id="serverListHint" style="margin-top:10px;font-size:11px;color:#888;text-align:center;">Finding servers…</div>
-    </div>
+</div>
     <div class="home-account" id="homeAccount">Not signed in</div>
     <div class="home-hint">Public = shared world • Solo = private server just for you</div>
   </div>
@@ -230,6 +230,13 @@
     <button class="btn secondary" id="saveBtn">💾 Save Code</button>
     <button class="btn" id="adminBtn" style="display:none;background:linear-gradient(180deg,#ff1744,#c62828);">⚡ Admin</button>
   </div>
+  <button type="button" id="inGameAvatarBtn" style="display:none;position:absolute;right:12px;top:45%;z-index:55;width:56px;height:56px;border-radius:16px;border:2px solid rgba(255,255,255,0.25);background:linear-gradient(180deg,#ab47bc,#6a1b9a);color:#fff;font-size:22px;cursor:pointer;">🧍</button>
+  <div id="inGameAvatarPanel" style="display:none;position:absolute;right:76px;top:40%;z-index:56;background:rgba(20,20,40,0.92);border:1px solid rgba(255,255,255,0.15);border-radius:14px;padding:12px;min-width:150px;">
+    <div style="color:#fff;font-weight:800;font-size:13px;margin-bottom:8px;">Avatar</div>
+    <button type="button" id="hatOnBtn" style="width:100%;padding:10px;margin-bottom:6px;border:none;border-radius:10px;font-weight:800;color:#fff;background:linear-gradient(180deg,#66bb6a,#2e7d32);">🎩 Hat ON</button>
+    <button type="button" id="hatOffBtn" style="width:100%;padding:10px;border:none;border-radius:10px;font-weight:800;color:#fff;background:linear-gradient(180deg,#78909c,#546e7a);">Hat OFF</button>
+    <div id="avatarHatStatus" style="text-align:center;color:#ce93d8;font-size:12px;margin-top:8px;font-weight:700;">Hat: ON</div>
+  </div>
   <div id="machineHint" style="display:none;position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#39ff14;padding:8px 16px;border-radius:16px;font-size:13px;font-weight:700;pointer-events:none;z-index:6;border:1px solid #39ff14;">
     Click the green machine to open Fusion
   </div>
@@ -244,10 +251,15 @@
   <div id="toast"></div>
 
   <!-- Multiplayer chat + locator -->
+  <button type="button" id="mpChatToggle" style="display:none;position:absolute;left:10px;bottom:220px;z-index:46;pointer-events:auto;padding:8px 12px;border-radius:12px;border:1px solid rgba(255,255,255,0.2);background:rgba(0,0,0,0.55);color:#fff;font-weight:800;font-size:12px;cursor:pointer;">💬 Chat</button>
   <div id="mpChat" style="display:none;position:absolute;left:10px;bottom:220px;width:min(280px,70vw);z-index:45;pointer-events:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="color:#fff;font-weight:800;font-size:12px;">💬 Chat</span>
+      <button type="button" id="mpChatClose" style="padding:4px 10px;border:none;border-radius:8px;background:#ef5350;color:#fff;font-weight:800;font-size:11px;cursor:pointer;">Close</button>
+    </div>
     <div id="mpChatLog" style="max-height:140px;overflow-y:auto;background:rgba(0,0,0,0.55);border-radius:12px;padding:8px;font-size:12px;color:#eee;margin-bottom:6px;border:1px solid rgba(255,255,255,0.12);"></div>
     <div style="display:flex;gap:6px;">
-      <input id="mpChatInput" maxlength="80" placeholder="Say something…" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid #444;background:#111;color:#fff;font-size:13px;">
+      <input id="mpChatInput" maxlength="120" placeholder="Type a message…" autocomplete="off" style="flex:1;padding:8px 10px;border-radius:10px;border:1px solid #444;background:#111;color:#fff;font-size:13px;pointer-events:auto;">
       <button id="mpChatSend" class="btn" style="padding:8px 12px;font-size:12px;">Send</button>
     </div>
   </div>
@@ -433,7 +445,8 @@
   <script type="importmap">
   {
     "imports": {
-      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
     }
   }
   </script>
@@ -989,9 +1002,11 @@
     renderer.domElement.style.position = 'absolute';
     renderer.domElement.style.left = '0';
     renderer.domElement.style.top = '0';
+    renderer.domElement.style.width = '100%';
+    renderer.domElement.style.height = '100%';
     renderer.domElement.style.zIndex = '1';
-    // While on home screen, don't let canvas steal taps
     renderer.domElement.style.pointerEvents = 'none';
+    renderer.domElement.id = 'gameCanvas';
     scene.add(new THREE.AmbientLight(0xffffff, 0.72));
     const sun = new THREE.DirectionalLight(0xfff5e0, 0.95);
     sun.position.set(30, 50, 20); sun.castShadow = true;
@@ -1166,79 +1181,135 @@
     makeSign(8,-8,0xf48fb1); makeSign(-8,12,0x80cbc4); makeSign(3,-22,0xffe082);
     makePlant(2.5,4); makePlant(-3,1); makePlant(9,-1); makePlant(-7,-10); makePlant(5,-18);
 
-    // ===== Custom player character (floating — Mobile Three.js Editor) =====
-    const player = new THREE.Group();
-    const pMat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.15 });
+    // ===== Avatar character (rounded Roblox-style) =====
+    let avatarHat = true;
+    try {
+      const ah = localStorage.getItem(STORAGE_KEY + '_hat');
+      if (ah === '0') avatarHat = false;
+      if (ah === '1') avatarHat = true;
+    } catch (e) {}
 
-    // Blue torso band
-    const pTorso = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0x4f8cff));
-    pTorso.position.set(0.0000, 3.0850, 0.0000);
-    pTorso.scale.set(-0.4884, 1.0283, 0.1523);
-    pTorso.castShadow = true; pTorso.receiveShadow = true;
-    player.add(pTorso);
-
-    // Pink head cylinder
-    const pHead = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 32), pMat(0xff5c8a));
-    pHead.position.set(0.0126, 3.9253, 0.0242);
-    pHead.scale.set(1.0283, 1.0283, 1.0283);
-    pHead.castShadow = true; pHead.receiveShadow = true;
-    player.add(pHead);
-
-    // Yellow limbs
-    const pLegL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
-    pLegL.position.set(-0.1432, 1.6035, -0.0465);
-    pLegL.rotation.set(0.0947, 0.0000, 0.0000);
-    pLegL.scale.set(0.3397, 2.7672, 0.1242);
-    pLegL.castShadow = true; pLegL.receiveShadow = true;
-    player.add(pLegL);
-
-    const pLegR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
-    pLegR.position.set(0.1362, 1.7234, -0.0172);
-    pLegR.rotation.set(0.0909, 0.0000, 0.0000);
-    pLegR.scale.set(0.3397, 2.7672, 0.1242);
-    pLegR.castShadow = true; pLegR.receiveShadow = true;
-    player.add(pLegR);
-
-    const pArmL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
-    pArmL.position.set(-0.7640, 2.3732, 0.5283);
-    pArmL.rotation.set(-0.7502, -0.4693, -0.5818);
-    pArmL.scale.set(0.3397, 2.7672, 0.1242);
-    pArmL.castShadow = true; pArmL.receiveShadow = true;
-    player.add(pArmL);
-
-    const pArmR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), pMat(0xfacc15));
-    pArmR.position.set(0.8716, 2.2243, 0.6253);
-    pArmR.rotation.set(-1.1573, 0.8446, 0.8572);
-    pArmR.scale.set(0.3397, 2.7672, 0.1242);
-    pArmR.castShadow = true; pArmR.receiveShadow = true;
-    player.add(pArmR);
-
-    // aliases (unused for bob now, but kept safe)
-    const legL = pLegL;
-    const legR = pLegR;
-
-    // Keyframes
-    const kfs_pTorso = [{"t":0,"pos":[0,3.0850101422330005,0],"rot":[0,0,0],"scale":[-0.4749757820792168,1,0.14815354541374667]},{"t":2.5,"pos":[0,3.0850101422330005,0],"rot":[0,0,0],"scale":[-0.7124636731188252,1.5,0.22223031812062]},{"t":5,"pos":[0,3.0850101422330005,0],"rot":[0,0,0],"scale":[-0.4749757820792168,1,0.14815354541374667]}];
-    const kfs_pHead = [{"t":0,"pos":[0.012574082018963997,3.925265579439033,0.02418037812933088],"rot":[0,0,0],"scale":[1,1,1]},{"t":1.6964767290198286,"pos":[0.012574082018963997,4.521062835325854,0.02418037812933088],"rot":[0,0,0],"scale":[1.3782469337596779,1.3782469337596779,1.3782469337596779]},{"t":2.5,"pos":[0.012574082018963997,3.925265579439033,0.02418037812933088],"rot":[0,0,0],"scale":[1.5,1.5,1.5]},{"t":5,"pos":[0.012574082018963997,3.925265579439033,0.02418037812933088],"rot":[0,0,0],"scale":[1,1,1]}];
-    const kfs_pLegL = [{"t":0,"pos":[-0.14323548066441244,1.6034813735629578,-0.046523569686281685],"rot":[0.09473686690175971,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[-0.14323548066441244,1.6034813735629578,-0.046523569686281685],"rot":[0.09473686690175971,0,0],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[-0.14323548066441244,1.6034813735629578,-0.046523569686281685],"rot":[0.09473686690175971,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
-    const kfs_pLegR = [{"t":0,"pos":[0.13615934881047465,1.7233717555732344,-0.017237965338583017],"rot":[0.09089354484708909,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[0.13615934881047465,1.7233717555732344,-0.017237965338583017],"rot":[0.09089354484708909,0,0],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[0.13615934881047465,1.7233717555732344,-0.017237965338583017],"rot":[0.09089354484708909,0,0],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
-    const kfs_pArmL = [{"t":0,"pos":[-0.7639795788074146,2.373221090322509,0.5282789367111191],"rot":[-0.7501957096212181,-0.46934239849003584,-0.5818072573472016],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[-0.7639795788074146,2.373221090322509,0.5282789367111191],"rot":[-0.7501957096212181,-0.46934239849003584,-0.5818072573472016],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[-0.7639795788074146,2.373221090322509,0.5282789367111191],"rot":[-0.7501957096212181,-0.46934239849003584,-0.5818072573472016],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
-    const kfs_pArmR = [{"t":0,"pos":[0.8716290701300493,2.2243214218113962,0.6253216925724324],"rot":[-1.1572646408466682,0.8445991991643329,0.8571739830323962],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]},{"t":2.5,"pos":[0.8716290701300493,2.2243214218113962,0.6253216925724324],"rot":[-1.1572646408466682,0.8445991991643329,0.8571739830323962],"scale":[0.49549548733467347,4.036644617481858,0.18116241952428808]},{"t":5,"pos":[0.8716290701300493,2.2243214218113962,0.6253216925724324],"rot":[-1.1572646408466682,0.8445991991643329,0.8571739830323962],"scale":[0.3303303248897823,2.6910964116545726,0.12077494634952539]}];
-
-    function updatePlayerAnimations(elapsed) {
-      applyKeyframes(pTorso, kfs_pTorso, elapsed);
-      applyKeyframes(pHead, kfs_pHead, elapsed);
-      applyKeyframes(pLegL, kfs_pLegL, elapsed);
-      applyKeyframes(pLegR, kfs_pLegR, elapsed);
-      applyKeyframes(pArmL, kfs_pArmL, elapsed);
-      applyKeyframes(pArmR, kfs_pArmR, elapsed);
-      // Gentle float above the ground
-      player.position.y = 0.55 + Math.sin(elapsed * 2.2) * 0.12;
+    function rbox(w, h, d, radius=0.18) {
+      // BoxGeometry only — avoids addon import crashes on some devices
+      return new THREE.BoxGeometry(w, h, d);
     }
 
-    player.scale.set(0.42, 0.42, 0.42);
-    player.position.set(0, 0.55, 8);
+    function buildAvatarModel(opts = {}) {
+      const hat = opts.hat != null ? opts.hat : true;
+      const accent = opts.accent != null ? opts.accent : 0x4f8cff;
+      const g = new THREE.Group();
+      const mat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.35, metalness: 0.1 });
+
+      // Legs (blue)
+      const legL = new THREE.Mesh(rbox(1, 1, 1, 0.18), mat(accent));
+      legL.position.set(0.0000, 0.8967, 0.0000);
+      legL.scale.set(0.5860, 1.8875, 0.6210);
+      legL.castShadow = true; legL.receiveShadow = true;
+      g.add(legL);
+
+      const legR = new THREE.Mesh(rbox(1, 1, 1, 0.18), mat(accent));
+      legR.position.set(0.4497, 0.8967, 0.0000);
+      legR.scale.set(0.5860, 1.8875, 0.6210);
+      legR.castShadow = true; legR.receiveShadow = true;
+      g.add(legR);
+
+      // Torso (orange)
+      const torso = new THREE.Mesh(rbox(1, 1, 1, 0.18), mat(0xff8c4f));
+      torso.position.set(0.2131, 2.5471, -0.0212);
+      torso.scale.set(1.0000, 1.5777, 0.6291);
+      torso.castShadow = true; torso.receiveShadow = true;
+      g.add(torso);
+
+      // Arms (blue)
+      const armR = new THREE.Mesh(rbox(1, 1, 1, 0.18), mat(accent));
+      armR.position.set(0.8609, 1.6805, 0.0000);
+      armR.scale.set(0.5860, 1.8875, 0.6210);
+      armR.castShadow = true; armR.receiveShadow = true;
+      g.add(armR);
+
+      const armL = new THREE.Mesh(rbox(1, 1, 1, 0.18), mat(accent));
+      armL.position.set(-0.4106, 1.6805, 0.0000);
+      armL.scale.set(0.5860, 1.8875, 0.6210);
+      armL.castShadow = true; armL.receiveShadow = true;
+      g.add(armL);
+
+      // Head (yellow sphere)
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.6, 24, 18), mat(0xfacc15));
+      head.position.set(0.2055, 3.9666, 0.0370);
+      head.castShadow = true; head.receiveShadow = true;
+      g.add(head);
+
+      // Hat group
+      const hatG = new THREE.Group();
+      hatG.name = 'hat';
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 24), mat(0xf472b6));
+      brim.position.set(0.1911, 4.4114, -0.0050);
+      brim.scale.set(1.0000, 0.0269, 1.0000);
+      brim.castShadow = true; hatG.add(brim);
+      const brim2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 24), mat(0x000000));
+      brim2.position.set(0.1873, 4.4426, -0.0050);
+      brim2.scale.set(0.7664, 0.0269, 1.0000);
+      brim2.castShadow = true; hatG.add(brim2);
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 24), mat(0x3dd68c));
+      top.position.set(0.2032, 5.0516, 0.0390);
+      top.scale.set(0.6622, 1.0000, 0.6863);
+      top.castShadow = true; hatG.add(top);
+      hatG.visible = !!hat;
+      g.add(hatG);
+
+      g.userData.parts = { legL, legR, armL, armR, torso, head, hatG };
+      g.userData.walkT = 0;
+      return g;
+    }
+
+    const player = buildAvatarModel({ hat: avatarHat });
+    // Center model on origin for nicer pivot
+    player.position.set(0, 0, 8);
+    player.scale.set(0.38, 0.38, 0.38);
     scene.add(player);
+
+    // For walk detection
+    let playerWasMoving = false;
+
+    function setAvatarHat(on) {
+      avatarHat = !!on;
+      try { localStorage.setItem(STORAGE_KEY + '_hat', avatarHat ? '1' : '0'); } catch (e) {}
+      if (player.userData.parts && player.userData.parts.hatG) {
+        player.userData.parts.hatG.visible = avatarHat;
+      }
+      const st = document.getElementById('avatarHatStatus');
+      if (st) st.textContent = 'Hat: ' + (avatarHat ? 'ON' : 'OFF');
+    }
+
+    function updatePlayerAnimations(elapsed) {
+      const parts = player.userData.parts;
+      if (!parts) return;
+      // Roblox-style walk: opposite limb swing when moving
+      const moving = !!(typeof keys !== 'undefined' && (
+        keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD']||
+        keys['ArrowUp']||keys['ArrowDown']||keys['ArrowLeft']||keys['ArrowRight']
+      )) || (typeof touchActive !== 'undefined' && touchActive);
+
+      if (moving) {
+        player.userData.walkT += 0.22;
+        const t = player.userData.walkT;
+        const swing = Math.sin(t) * 0.55;
+        const swing2 = Math.sin(t + Math.PI) * 0.55;
+        parts.legL.rotation.x = swing;
+        parts.legR.rotation.x = swing2;
+        parts.armL.rotation.x = swing2 * 0.85;
+        parts.armR.rotation.x = swing * 0.85;
+        // slight bob
+        player.position.y = Math.abs(Math.sin(t * 2)) * 0.06;
+      } else {
+        // ease back to idle
+        parts.legL.rotation.x *= 0.8;
+        parts.legR.rotation.x *= 0.8;
+        parts.armL.rotation.x *= 0.8;
+        parts.armR.rotation.x *= 0.8;
+        player.position.y *= 0.85;
+      }
+    }
 
     function createPetMesh(data) {
       const g = new THREE.Group();
@@ -2367,8 +2438,19 @@
 
 
     const keys = {};
-    window.addEventListener('keydown', e => { keys[e.code] = true; if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
-    window.addEventListener('keyup', e => { keys[e.code] = false; });
+    window.addEventListener('keydown', e => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+      const typing = tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable);
+      if (!typing) {
+        keys[e.code] = true;
+        if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+      }
+    });
+    window.addEventListener('keyup', e => {
+      const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+      const typing = tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable);
+      if (!typing) keys[e.code] = false;
+    });
 
     // Mobile virtual joystick (reliable on iOS)
     let touchActive = false, touchDir = { x: 0, y: 0 };
@@ -2712,12 +2794,49 @@
       const el = document.getElementById(id);
       if (el) el.classList.remove('open');
     });
+    ['mpChat','mpLocator','inGameAvatarPanel'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const home = document.getElementById('homeScreen');
+    if (home) { home.style.pointerEvents = 'auto'; home.style.zIndex = '250'; }
+    document.querySelectorAll('#playBtn,#soloBtn').forEach(b => {
+      if (b) { b.style.pointerEvents = 'auto'; b.style.zIndex = '40'; }
+    });
     document.getElementById('hud').style.display = 'none';
     document.getElementById('controls').style.display = 'none';
     const hintEl = document.getElementById('hint');
     if (hintEl) hintEl.style.display = 'none';
     const mHint = document.getElementById('machineHint');
     if (mHint) mHint.style.display = 'none';
+
+
+    // ===== In-game avatar panel =====
+    function updateHatStatusUI() {
+      const st = document.getElementById('avatarHatStatus');
+      if (st) st.textContent = 'Hat: ' + (avatarHat ? 'ON' : 'OFF');
+    }
+    function bindAvatarUI() {
+      const sideBtn = document.getElementById('inGameAvatarBtn');
+      const hatOn = document.getElementById('hatOnBtn');
+      const hatOff = document.getElementById('hatOffBtn');
+      if (sideBtn) sideBtn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const panel = document.getElementById('inGameAvatarPanel');
+        if (!panel) return;
+        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+        updateHatStatusUI();
+      };
+      if (hatOn) hatOn.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        setAvatarHat(true); updateHatStatusUI();
+      };
+      if (hatOff) hatOff.onclick = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        setAvatarHat(false); updateHatStatusUI();
+      };
+    }
+    bindAvatarUI();
 
     // ===== MULTIPLAYER SERVERS (max 10) =====
     const SERVER_MAX = 10;
@@ -2729,55 +2848,8 @@
     let lastWaveAt = 0;
 
     function makeRemotePlayerMesh(name, colorHex) {
-      // Same style as local player (floating editor character)
-      const g = new THREE.Group();
-      const mat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.15 });
-      const accent = colorHex || 0x4f8cff;
-
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(accent));
-      torso.position.set(0, 3.085, 0);
-      torso.scale.set(-0.4884, 1.0283, 0.1523);
-      torso.castShadow = true; g.add(torso);
-
-      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16), mat(0xff5c8a));
-      head.position.set(0.01, 3.925, 0.02);
-      head.scale.set(1.0283, 1.0283, 1.0283);
-      head.castShadow = true; g.add(head);
-
-      const legL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
-      legL.position.set(-0.14, 1.60, -0.05);
-      legL.rotation.set(0.09, 0, 0);
-      legL.scale.set(0.34, 2.77, 0.12);
-      legL.castShadow = true; g.add(legL);
-
-      const legR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
-      legR.position.set(0.14, 1.72, -0.02);
-      legR.rotation.set(0.09, 0, 0);
-      legR.scale.set(0.34, 2.77, 0.12);
-      legR.castShadow = true; g.add(legR);
-
-      const armL = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
-      armL.position.set(-0.76, 2.37, 0.53);
-      armL.rotation.set(-0.75, -0.47, -0.58);
-      armL.scale.set(0.34, 2.77, 0.12);
-      armL.castShadow = true; g.add(armL);
-
-      const armR = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), mat(0xfacc15));
-      armR.position.set(0.87, 2.22, 0.63);
-      armR.rotation.set(-1.16, 0.84, 0.86);
-      armR.scale.set(0.34, 2.77, 0.12);
-      armR.castShadow = true; g.add(armR);
-
-      // floating ring marker
-      const ring = new THREE.Mesh(
-        new THREE.RingGeometry(0.7, 0.95, 20),
-        new THREE.MeshBasicMaterial({ color: accent, transparent: true, opacity: 0.7, side: THREE.DoubleSide })
-      );
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.08;
-      g.add(ring);
-
-      g.scale.set(0.42, 0.42, 0.42);
+      const g = buildAvatarModel({ hat: true, accent: colorHex || 0x4f8cff });
+      g.scale.set(0.38, 0.38, 0.38);
       g.userData.name = name;
       g.userData.bob = Math.random() * Math.PI * 2;
       return g;
@@ -2874,6 +2946,7 @@
         y: player.position.y,
         z: player.position.z,
         rot: player.rotation.y,
+        hat: avatarHat ? 1 : 0,
         lastSeen: Date.now()
       });
     }
@@ -2901,9 +2974,18 @@
           rp.mesh.position.x = p.x || 0;
           rp.mesh.position.z = p.z || 0;
           rp.mesh.rotation.y = p.rot || 0;
-          // match local float height
-          rp.mesh.userData.bob = (rp.mesh.userData.bob || 0) + 0.08;
-          rp.mesh.position.y = 0.55 + Math.sin(rp.mesh.userData.bob) * 0.12;
+          rp.mesh.userData.walkT = (rp.mesh.userData.walkT || 0) + 0.2;
+          const wt = rp.mesh.userData.walkT;
+          const parts = rp.mesh.userData.parts;
+          if (parts) {
+            const swing = Math.sin(wt) * 0.5;
+            parts.legL.rotation.x = swing;
+            parts.legR.rotation.x = -swing;
+            parts.armL.rotation.x = -swing * 0.8;
+            parts.armR.rotation.x = swing * 0.8;
+            if (parts.hatG) parts.hatG.visible = p.hat !== 0;
+          }
+          rp.mesh.position.y = Math.abs(Math.sin(wt * 2)) * 0.06;
           rp.lastSeen = p.lastSeen;
         });
       }
@@ -2965,44 +3047,72 @@
     }
 
     let lastChatTs = 0;
+    const seenChatKeys = new Set();
+    const CHAT_FADE_MS = 45000; // remove message text after 45s
     function appendChatLine(name, msg, mine) {
       const log = document.getElementById('mpChatLog');
       if (!log) return;
       const div = document.createElement('div');
       div.style.marginBottom = '4px';
-      div.innerHTML = '<b style="color:'+(mine?'#ffd54f':'#90caf9')+';">' + name + ':</b> ' + msg;
+      div.style.whiteSpace = 'pre-wrap';
+      div.style.wordBreak = 'break-word';
+      div.style.transition = 'opacity 0.6s';
+      const who = document.createElement('b');
+      who.style.color = mine ? '#ffd54f' : '#90caf9';
+      who.textContent = String(name || '?') + ': ';
+      const body = document.createElement('span');
+      body.style.color = '#eee';
+      body.textContent = String(msg == null ? '' : msg);
+      div.appendChild(who);
+      div.appendChild(body);
       log.appendChild(div);
       log.scrollTop = log.scrollHeight;
+      // Remove this chat line after 45 seconds
+      setTimeout(() => {
+        try {
+          div.style.opacity = '0';
+          setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 650);
+        } catch (e) {}
+      }, CHAT_FADE_MS);
     }
     async function sendChat() {
       if (!currentServerId || !gameStarted) return;
       const input = document.getElementById('mpChatInput');
       if (!input) return;
-      const msg = (input.value || '').trim();
+      // keep spaces inside the message; only trim ends
+      const msg = String(input.value || '').replace(/^\s+|\s+$/g, '');
       if (!msg) return;
       const myId = activeIdentity();
-      const key = 'chat_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-      await fbPut('servers/' + currentServerId + '/chat/' + key, {
+      const ts = Date.now();
+      const key = 'c' + ts + '_' + Math.random().toString(36).slice(2, 7);
+      const payload = {
         name: myId,
-        msg: msg.slice(0, 80),
-        ts: Date.now()
-      });
+        msg: msg.slice(0, 120),
+        ts: ts
+      };
+      // Live Firebase write under this server
+      await fbPut('servers/' + currentServerId + '/chat/' + key, payload);
+      seenChatKeys.add(key);
       input.value = '';
-      appendChatLine(myId, msg, true);
-      lastChatTs = Date.now();
+      appendChatLine(myId, payload.msg, true);
+      lastChatTs = Math.max(lastChatTs, ts);
     }
     async function pullChat() {
       if (!currentServerId || !gameStarted) return;
       const data = await fbGet('servers/' + currentServerId + '/chat');
       if (!data || typeof data !== 'object') return;
       const myId = activeIdentity();
-      const rows = Object.keys(data).map(k => data[k]).filter(Boolean);
-      rows.sort((a, b) => (a.ts || 0) - (b.ts || 0));
-      rows.forEach(row => {
-        if (!row.ts || row.ts <= lastChatTs) return;
-        if (row.name === myId) { lastChatTs = Math.max(lastChatTs, row.ts); return; }
-        appendChatLine(row.name || '?', row.msg || '', false);
+      const entries = Object.keys(data).map(k => ({ key: k, ...(data[k] || {}) }));
+      entries.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      entries.forEach(row => {
+        if (!row.key || seenChatKeys.has(row.key)) return;
+        if (!row.ts) return;
+        seenChatKeys.add(row.key);
         lastChatTs = Math.max(lastChatTs, row.ts);
+        // show everyone's messages from DB (skip exact echo we already drew if same ts+name+msg optional)
+        const mine = row.name === myId;
+        if (mine) return; // already appended on send
+        appendChatLine(row.name || '?', row.msg || '', false);
       });
     }
 
@@ -3011,22 +3121,54 @@
       if (mpPollTimer) clearInterval(mpPollTimer);
       pushMyPosition();
       mpSyncTimer = setInterval(pushMyPosition, 300);
-      mpPollTimer = setInterval(() => { pullRemotePlayers(); pullChat(); }, 500);
+      mpPollTimer = setInterval(() => { pullRemotePlayers(); pullChat(); }, 400);
       const chat = document.getElementById('mpChat');
+      const chatToggle = document.getElementById('mpChatToggle');
       const loc = document.getElementById('mpLocator');
-      if (chat) chat.style.display = serverMode === 'solo' ? 'none' : 'block';
+      if (serverMode === 'solo') {
+        if (chat) chat.style.display = 'none';
+        if (chatToggle) chatToggle.style.display = 'none';
+      } else {
+        if (chat) { chat.style.display = 'block'; chat.style.pointerEvents = 'auto'; }
+        if (chatToggle) chatToggle.style.display = 'none'; // open by default; toggle shows when closed
+      }
       if (loc) loc.style.display = 'block';
-      // bind chat once
+      const chatClose = document.getElementById('mpChatClose');
+      if (chatClose && !chatClose._bound) {
+        chatClose._bound = true;
+        chatClose.onclick = (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (chat) chat.style.display = 'none';
+          if (chatToggle) chatToggle.style.display = 'block';
+        };
+      }
+      if (chatToggle && !chatToggle._bound) {
+        chatToggle._bound = true;
+        chatToggle.onclick = (e) => {
+          e.preventDefault(); e.stopPropagation();
+          if (chat) chat.style.display = 'block';
+          chatToggle.style.display = 'none';
+        };
+      }
       const sendBtn = document.getElementById('mpChatSend');
       const input = document.getElementById('mpChatInput');
+      if (input) {
+        input.addEventListener('keydown', e => {
+          e.stopPropagation();
+          if (e.code === 'Enter') { e.preventDefault(); sendChat(); }
+        });
+        input.addEventListener('keyup', e => e.stopPropagation());
+        input.addEventListener('keypress', e => e.stopPropagation());
+      }
       if (sendBtn && !sendBtn._bound) {
         sendBtn._bound = true;
         sendBtn.onclick = () => sendChat();
-        input.addEventListener('keydown', e => {
-          if (e.code === 'Enter') { e.preventDefault(); sendChat(); }
-        });
       }
-      lastChatTs = Date.now() - 1000;
+      lastChatTs = Date.now() - 5000;
+      seenChatKeys.clear();
+      const log = document.getElementById('mpChatLog');
+      if (log) log.innerHTML = '';
+      pullChat();
     }
 
     async function refreshServerHint() {
@@ -3117,6 +3259,8 @@
       const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
       if (joyWrap) joyWrap.style.display = isTouch ? 'block' : 'none';
       if (teleportBtn) teleportBtn.style.display = (isTouch && (powers.teleport || 0) > 0) ? 'flex' : 'none';
+      const avBtn = document.getElementById('inGameAvatarBtn');
+      if (avBtn) avBtn.style.display = 'block';
       try {
         showToast(serverMode === 'solo'
           ? 'Solo server — only you here'
