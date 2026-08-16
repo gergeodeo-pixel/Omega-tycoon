@@ -615,7 +615,13 @@
     function applySaveData(data) {
       if (!data || typeof data.money !== 'number') return false;
       money = Math.max(0, data.money);
-      owned = data.owned || {};
+      // owned must be object map { id: count }; fix array mistakes from older saves
+      if (Array.isArray(data.owned)) {
+        owned = {};
+        data.owned.forEach((v, i) => { if (v) owned[i] = v; });
+      } else {
+        owned = data.owned || {};
+      }
       powers = { light: 0, teleport: 0, shield: 0, ...(data.powers || {}) };
       Object.keys(POWER_DEFS).forEach(k => { powers[k] = Math.min(POWER_MAX, Math.max(0, powers[k] || 0)); });
       activePets.forEach(m => scene.remove(m));
@@ -769,9 +775,12 @@
       // works for accounts AND guests (guest_1234)
       if (!username) return;
       const id = safeId(username);
-      const exp = Math.floor(Date.now() / 1000) + 120;
-      await fbPut('sessions/' + id, exp);
-      await fbPut('presence/' + id, { online: true, lastSeen: Date.now(), name: username });
+      const beat = async () => {
+        const exp = Math.floor(Date.now() / 1000) + 90;
+        await fbPut('sessions/' + id, exp);
+        await fbPut('presence/' + id, { online: true, lastSeen: Date.now(), name: username });
+      };
+      await beat();
       if (sessionHeartbeat) clearInterval(sessionHeartbeat);
       sessionHeartbeat = setInterval(async () => {
         const stillMe = (currentUser && currentUser.username === username) ||
@@ -781,10 +790,8 @@
           sessionHeartbeat = null;
           return;
         }
-        const exp2 = Math.floor(Date.now() / 1000) + 120;
-        await fbPut('sessions/' + id, exp2);
-        await fbPut('presence/' + id, { online: true, lastSeen: Date.now(), name: username });
-      }, 15000);
+        await beat();
+      }, 8000); // every 8s so admin stays live
     }
     function endCloudSession(username) {
       if (sessionHeartbeat) { clearInterval(sessionHeartbeat); sessionHeartbeat = null; }
@@ -1962,14 +1969,21 @@
 
       if (liveEl) {
         const onlineNow = Object.keys(presence).filter(u => presence[u] && presence[u].online);
-        const log = getActivityLog().slice(0, 15);
+        const offlineRecent = Object.keys(presence).filter(u => presence[u] && !presence[u].online);
+        const log = getActivityLog().slice(0, 12);
         liveEl.innerHTML =
           `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #333;">
-            <b style="color:#39ff14;">● ONLINE NOW (${onlineNow.length})</b><br>` +
+            <b style="color:#39ff14;">● ONLINE NOW (${onlineNow.length})</b> <span style="color:#666;font-size:10px;">updates every 2s</span><br>` +
           (onlineNow.length
-            ? onlineNow.map(u => `<span style="color:#81c784;margin-right:8px;">${u}</span>`).join('')
-            : '<span style="color:#666;">Nobody online in Firebase presence</span>') +
-          `</div>` +
+            ? onlineNow.map(u => {
+                const age = presence[u].ageSec;
+                const ageTxt = age < 9999 ? (age + 's ago') : '';
+                return `<div style="color:#81c784;margin:2px 0;"><b>${u}</b> <span style="color:#666;font-size:10px;">${ageTxt}</span></div>`;
+              }).join('')
+            : '<span style="color:#666;">Nobody with a fresh heartbeat</span>') +
+          `<div style="margin-top:8px;color:#888;font-size:11px;">Seen offline: ` +
+          (offlineRecent.length ? offlineRecent.slice(0, 12).join(', ') : '—') +
+          `</div></div>` +
           (log.length
             ? log.map(e => {
                 const t = new Date(e.ts).toLocaleTimeString();
@@ -2137,11 +2151,14 @@
         ids.forEach(u => {
           const row = (data && data[u]) || {};
           const exp = parseInt((sessions && sessions[u]) || 0, 10) || 0;
-          const fresh = !!row.online && (now - (row.lastSeen || 0) < 180000);
+          const age = now - (row.lastSeen || 0);
+          // Live if heartbeat in last 90s OR session not expired
+          const fresh = (row.lastSeen && age < 90000);
           const sessLive = exp > nowSec;
           p[u] = {
-            online: fresh || sessLive,
-            lastSeen: row.lastSeen || (sessLive ? now : 0),
+            online: !!(fresh || sessLive),
+            lastSeen: row.lastSeen || 0,
+            ageSec: row.lastSeen ? Math.floor(age / 1000) : 9999,
             name: row.name || u
           };
         });
@@ -2617,11 +2634,18 @@
     function noteActivity() {
       lastActivityAt = Date.now();
       if (idleTimer) { clearTimeout(idleTimer); idleTimer = null; }
-      // Rejoin online if we were idle-offline but still in game
       if (gameStarted && !countedOnline && document.visibilityState === 'visible') {
         joinOnlineCount();
       }
-      // Schedule idle offline
+      // Keep Firebase presence fresh on interaction
+      if (gameStarted) {
+        const id = activeIdentity();
+        if (id) {
+          const sid = safeId(id);
+          fbPut('presence/' + sid, { online: true, lastSeen: Date.now(), name: id });
+          fbPut('sessions/' + sid, Math.floor(Date.now() / 1000) + 90);
+        }
+      }
       if (gameStarted) {
         idleTimer = setTimeout(() => {
           if (Date.now() - lastActivityAt >= IDLE_MS - 50) {
