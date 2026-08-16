@@ -194,16 +194,18 @@
     <div class="home-logo">🐾 Pet Path Tycoon</div>
     <div class="home-sub">Collect pets • Walk the red path • Get rich</div>
     <div class="mode-card">
-      <h3>Classic Path</h3>
-      <p>Explore the town, buy pets, fuse Omegas into Zombify, and earn passive income.</p>
+      <h3>Public Server</h3>
+      <p>Join a live server with other players (max 10). See each other in the world.</p>
       <div class="mode-meta">
-        <div class="players-online"><span class="dot"></span> <span id="playerCount">—</span> playing</div>
-        <span class="mode-tag">ONLY MODE</span>
+        <div class="players-online"><span class="dot"></span> <span id="playerCount">—</span> online</div>
+        <span class="mode-tag">MAX 10</span>
       </div>
-      <button id="playBtn">▶  Play</button>
+      <button id="playBtn">▶  Join Public</button>
+      <button id="soloBtn" style="width:100%;margin-top:10px;padding:12px;border:none;border-radius:14px;background:linear-gradient(180deg,#5c6bc0,#3949ab);color:#fff;font-size:15px;font-weight:800;cursor:pointer;">🏠 Solo Server</button>
+      <div id="serverListHint" style="margin-top:10px;font-size:11px;color:#888;text-align:center;">Finding servers…</div>
     </div>
     <div class="home-account" id="homeAccount">Not signed in</div>
-    <div class="home-hint">Your money & pets auto-save. Progress carries over when you return.</div>
+    <div class="home-hint">Public = shared world • Solo = private server just for you</div>
   </div>
   <div id="hud">
     <div class="panel" id="moneyBox">
@@ -2704,9 +2706,235 @@
     const mHint = document.getElementById('machineHint');
     if (mHint) mHint.style.display = 'none';
 
-    function startGame(e) {
+    // ===== MULTIPLAYER SERVERS (max 10) =====
+    const SERVER_MAX = 10;
+    let currentServerId = null;
+    let serverMode = 'public'; // public | solo
+    const remotePlayers = {}; // id -> { mesh, lastSeen, name }
+    let mpSyncTimer = null;
+    let mpPollTimer = null;
+    let lastWaveAt = 0;
+
+    function makeRemotePlayerMesh(name, colorHex) {
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 0.85, 0.4),
+        new THREE.MeshLambertMaterial({ color: colorHex || 0x90caf9 })
+      );
+      body.position.y = 0.9; body.castShadow = true; g.add(body);
+      const head = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.4, 0.4),
+        new THREE.MeshLambertMaterial({ color: 0xffcc80 })
+      );
+      head.position.y = 1.55; head.castShadow = true; g.add(head);
+      // name plate (simple box marker)
+      const tag = new THREE.Mesh(
+        new THREE.BoxGeometry(0.7, 0.12, 0.05),
+        new THREE.MeshBasicMaterial({ color: 0x111111 })
+      );
+      tag.position.y = 2.0; g.add(tag);
+      g.userData.name = name;
+      return g;
+    }
+    function colorForId(id) {
+      let h = 0;
+      for (let i = 0; i < id.length; i++) h = ((h << 5) - h) + id.charCodeAt(i);
+      const colors = [0x90caf9, 0xf48fb1, 0xa5d6a7, 0xffe082, 0xce93d8, 0x80cbc4, 0xffab91];
+      return colors[Math.abs(h) % colors.length];
+    }
+
+    async function createServer(solo) {
+      const id = (solo ? 'solo_' : 'srv_') + Math.random().toString(36).slice(2, 8);
+      const payload = {
+        id,
+        solo: !!solo,
+        max: solo ? 1 : SERVER_MAX,
+        created: Date.now(),
+        players: {}
+      };
+      await fbPut('servers/' + id, payload);
+      return id;
+    }
+
+    async function findPublicServer() {
+      const all = await fbGet('servers');
+      if (!all || typeof all !== 'object') return null;
+      const now = Date.now();
+      let best = null;
+      let bestCount = -1;
+      Object.keys(all).forEach(sid => {
+        const s = all[sid];
+        if (!s || s.solo) return;
+        const players = s.players || {};
+        // prune stale
+        let live = 0;
+        Object.keys(players).forEach(pid => {
+          const p = players[pid];
+          if (p && p.lastSeen && (now - p.lastSeen) < 90000) live++;
+        });
+        if (live < SERVER_MAX && live > bestCount) {
+          bestCount = live;
+          best = sid;
+        }
+      });
+      return best;
+    }
+
+    async function joinServer(serverId, myId) {
+      currentServerId = serverId;
+      const path = 'servers/' + serverId + '/players/' + safeId(myId);
+      await fbPut(path, {
+        id: myId,
+        name: myId,
+        x: player.position.x,
+        y: player.position.y,
+        z: player.position.z,
+        rot: player.rotation.y,
+        lastSeen: Date.now()
+      });
+      return serverId;
+    }
+
+    async function leaveServer() {
+      if (!currentServerId) return;
+      const myId = activeIdentity();
+      if (myId) {
+        fbPutKeepalive('servers/' + currentServerId + '/players/' + safeId(myId), null);
+      }
+      // clear remote meshes
+      Object.keys(remotePlayers).forEach(id => {
+        const rp = remotePlayers[id];
+        if (rp && rp.mesh) scene.remove(rp.mesh);
+        delete remotePlayers[id];
+      });
+      currentServerId = null;
+      if (mpSyncTimer) { clearInterval(mpSyncTimer); mpSyncTimer = null; }
+      if (mpPollTimer) { clearInterval(mpPollTimer); mpPollTimer = null; }
+    }
+
+    function pushMyPosition() {
+      if (!currentServerId || !gameStarted) return;
+      const myId = activeIdentity();
+      if (!myId) return;
+      const path = 'servers/' + currentServerId + '/players/' + safeId(myId);
+      fbPut(path, {
+        id: myId,
+        name: myId,
+        x: player.position.x,
+        y: player.position.y,
+        z: player.position.z,
+        rot: player.rotation.y,
+        lastSeen: Date.now()
+      });
+    }
+
+    async function pullRemotePlayers() {
+      if (!currentServerId || !gameStarted) return;
+      const myId = activeIdentity();
+      const data = await fbGet('servers/' + currentServerId + '/players');
+      const now = Date.now();
+      const seen = new Set();
+      if (data && typeof data === 'object') {
+        Object.keys(data).forEach(pid => {
+          const p = data[pid];
+          if (!p || !p.lastSeen) return;
+          if (now - p.lastSeen > 90000) return; // stale
+          if (safeId(p.id || pid) === safeId(myId)) return; // me
+          seen.add(pid);
+          if (!remotePlayers[pid]) {
+            const mesh = makeRemotePlayerMesh(p.name || pid, colorForId(pid));
+            scene.add(mesh);
+            remotePlayers[pid] = { mesh, name: p.name || pid };
+            showToast((p.name || pid) + ' joined');
+          }
+          const rp = remotePlayers[pid];
+          // smooth-ish snap
+          rp.mesh.position.x = p.x || 0;
+          rp.mesh.position.y = (p.y != null ? p.y : 0.55);
+          rp.mesh.position.z = p.z || 0;
+          rp.mesh.rotation.y = p.rot || 0;
+          rp.lastSeen = p.lastSeen;
+        });
+      }
+      // remove gone
+      Object.keys(remotePlayers).forEach(pid => {
+        if (!seen.has(pid)) {
+          scene.remove(remotePlayers[pid].mesh);
+          showToast((remotePlayers[pid].name || pid) + ' left');
+          delete remotePlayers[pid];
+        }
+      });
+      // proximity wave interact
+      Object.keys(remotePlayers).forEach(pid => {
+        const rp = remotePlayers[pid];
+        const d = player.position.distanceTo(rp.mesh.position);
+        if (d < 2.2 && Date.now() - lastWaveAt > 4000) {
+          lastWaveAt = Date.now();
+          showToast('👋 Hi ' + (rp.name || pid) + '!');
+        }
+      });
+      // update home hint / hud server tag
+      const n = Object.keys(remotePlayers).length + 1;
+      const tag = document.getElementById('serverTag');
+      if (tag) tag.textContent = (serverMode === 'solo' ? 'SOLO' : currentServerId) + ' · ' + n + '/' + (serverMode === 'solo' ? 1 : SERVER_MAX);
+    }
+
+    function startMultiplayerSync() {
+      if (mpSyncTimer) clearInterval(mpSyncTimer);
+      if (mpPollTimer) clearInterval(mpPollTimer);
+      pushMyPosition();
+      mpSyncTimer = setInterval(pushMyPosition, 300);
+      mpPollTimer = setInterval(pullRemotePlayers, 500);
+    }
+
+    async function refreshServerHint() {
+      const el = document.getElementById('serverListHint');
+      if (!el) return;
+      try {
+        const all = await fbGet('servers');
+        if (!all) { el.textContent = 'No public servers yet — Join creates one'; return; }
+        const now = Date.now();
+        let open = 0, totalPlayers = 0;
+        Object.keys(all).forEach(sid => {
+          const s = all[sid];
+          if (!s || s.solo) return;
+          let live = 0;
+          Object.keys(s.players || {}).forEach(pid => {
+            const p = s.players[pid];
+            if (p && p.lastSeen && now - p.lastSeen < 90000) live++;
+          });
+          if (live > 0 && live < SERVER_MAX) open++;
+          totalPlayers += live;
+        });
+        el.textContent = open + ' public server(s) with space · ' + totalPlayers + ' in public worlds';
+      } catch {
+        el.textContent = 'Servers loading…';
+      }
+    }
+    refreshServerHint();
+    setInterval(refreshServerHint, 6000);
+
+    async function startGame(e, mode) {
       try { if (e) { e.preventDefault(); e.stopPropagation(); } } catch (err) {}
       if (gameStarted) return;
+      serverMode = mode === 'solo' ? 'solo' : 'public';
+      const myId = activeIdentity() || ensureGuestId();
+      showToast(serverMode === 'solo' ? 'Starting solo server…' : 'Finding public server…');
+
+      try {
+        if (serverMode === 'solo') {
+          const sid = await createServer(true);
+          await joinServer(sid, myId);
+        } else {
+          let sid = await findPublicServer();
+          if (!sid) sid = await createServer(false);
+          await joinServer(sid, myId);
+        }
+      } catch (err) {
+        showToast('Server join failed — playing offline');
+        currentServerId = null;
+      }
+
       gameStarted = true;
       try { renderer.domElement.style.pointerEvents = 'auto'; } catch (err) {}
       const home = document.getElementById('homeScreen');
@@ -2720,38 +2948,64 @@
       if (hud) hud.style.display = '';
       if (controls) controls.style.display = '';
       if (hintEl) hintEl.style.display = '';
+      // server tag in HUD
+      let tag = document.getElementById('serverTag');
+      if (!tag) {
+        tag = document.createElement('div');
+        tag.id = 'serverTag';
+        tag.style.cssText = 'position:absolute;top:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.55);color:#81c784;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;z-index:40;pointer-events:none;';
+        document.body.appendChild(tag);
+      }
+      tag.style.display = '';
+      tag.textContent = (serverMode === 'solo' ? 'SOLO' : (currentServerId || 'public')) + ' · 1/' + (serverMode === 'solo' ? 1 : SERVER_MAX);
+
       try { updateHUD(); } catch (err) {}
       try { updateAccountUI(); } catch (err) {}
       try { saveProgress(); } catch (err) {}
       try { noteActivity(); } catch (err) {}
       try {
-        const id = activeIdentity();
-        if (id) {
-          markUserOnline(id);
-          startCloudSession(id); // guests + accounts both live on Firebase
+        if (myId) {
+          markUserOnline(myId);
+          startCloudSession(myId);
         }
       } catch (err) {}
+      try { await joinOnlineCount(); } catch (err) {}
+      if (currentServerId) startMultiplayerSync();
+
       const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
       if (joyWrap) joyWrap.style.display = isTouch ? 'block' : 'none';
       if (teleportBtn) teleportBtn.style.display = (isTouch && (powers.teleport || 0) > 0) ? 'flex' : 'none';
-      try { showToast(isTouch ? 'Use the joystick to move!' : 'Welcome to Classic Path!'); } catch (err) {}
+      try {
+        showToast(serverMode === 'solo'
+          ? 'Solo server — only you here'
+          : ('Joined ' + currentServerId + ' — walk near players to wave!'));
+      } catch (err) {}
     }
+
     (function bindPlay() {
       const playBtn = document.getElementById('playBtn');
-      if (!playBtn) return;
-      playBtn.style.pointerEvents = 'auto';
-      playBtn.style.position = 'relative';
-      playBtn.style.zIndex = '30';
-      playBtn.onclick = startGame;
-      playBtn.addEventListener('click', startGame, true);
-      playBtn.addEventListener('touchend', startGame, { passive: false, capture: true });
-      playBtn.addEventListener('pointerup', startGame, true);
-      // Also allow tapping the whole mode card area
-      const card = playBtn.closest('.mode-card');
-      if (card) card.addEventListener('click', function(ev) {
-        if (ev.target === playBtn || playBtn.contains(ev.target) || ev.target === card || ev.target.closest('#playBtn')) startGame(ev);
-      });
+      const soloBtn = document.getElementById('soloBtn');
+      function bind(btn, mode) {
+        if (!btn) return;
+        btn.style.pointerEvents = 'auto';
+        btn.style.position = 'relative';
+        btn.style.zIndex = '30';
+        const fn = (e) => startGame(e, mode);
+        btn.onclick = fn;
+        btn.addEventListener('click', fn, true);
+        btn.addEventListener('touchend', fn, { passive: false, capture: true });
+        btn.addEventListener('pointerup', fn, true);
+      }
+      bind(playBtn, 'public');
+      bind(soloBtn, 'solo');
     })();
+
+    // Leave server on exit
+    const _leaveOnlineCount = leaveOnlineCount;
+    leaveOnlineCount = function() {
+      try { leaveServer(); } catch (e) {}
+      _leaveOnlineCount();
+    };
     // Also refresh home account label when user signs in from game later (if they go back — N/A)
     const _origUpdateAccountUI = updateAccountUI;
     updateAccountUI = function() {
