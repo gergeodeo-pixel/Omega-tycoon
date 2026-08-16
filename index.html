@@ -685,67 +685,89 @@
       return getBanList().includes((username || '').trim().toLowerCase());
     }
 
-    // ===== LIVE GLOBAL ACCOUNT REGISTRY (cross-device) =====
-    // Uses shared count API keys so usernames are reserved worldwide
-    const CLOUD_CLAIM_PREFIX = 'ppt_claim_v2_';
-    const CLOUD_SESSION_PREFIX = 'ppt_sess_v2_';
-    const CLOUD_API = 'https://countapi.mileshilliard.com/api/v1';
+    // ===== FIREBASE LIVE BACKEND =====
+    const FB_URL = 'https://petpathtycoon-default-rtdb.firebaseio.com';
     let sessionHeartbeat = null;
 
-    async function cloudGet(key) {
-      try {
-        const r = await fetch(CLOUD_API + '/get/' + encodeURIComponent(key), { cache: 'no-store' });
-        const j = await r.json();
-        const v = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
-        return Number.isFinite(v) ? v : 0;
-      } catch { return null; } // null = network fail
+    function fbPath(path) {
+      return FB_URL + '/' + String(path).replace(/^\/+/, '') + '.json';
     }
-    async function cloudSet(key, value) {
+    async function fbGet(path) {
       try {
-        const v = Math.max(0, Math.floor(value));
-        const r = await fetch(CLOUD_API + '/set/' + encodeURIComponent(key) + '?value=' + v, { cache: 'no-store' });
-        const j = await r.json();
-        const n = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
-        return Number.isFinite(n) ? n : v;
+        const r = await fetch(fbPath(path), { cache: 'no-store' });
+        if (!r.ok) return null;
+        return await r.json();
       } catch { return null; }
     }
-    function cloudSetKeepalive(key, value) {
-      const v = Math.max(0, Math.floor(value));
-      const url = CLOUD_API + '/set/' + encodeURIComponent(key) + '?value=' + v;
-      try { fetch(url, { method: 'GET', keepalive: true, cache: 'no-store' }).catch(() => {}); } catch (e) {}
-      try { const img = new Image(); img.src = url + '&_t=' + Date.now(); } catch (e) {}
+    async function fbPut(path, value) {
+      try {
+        const r = await fetch(fbPath(path), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(value),
+          cache: 'no-store'
+        });
+        if (!r.ok) return null;
+        return await r.json();
+      } catch { return null; }
     }
-    function claimKey(u) { return CLOUD_CLAIM_PREFIX + String(u).toLowerCase().replace(/[^a-z0-9_\-]/g, '_').slice(0, 40); }
-    function sessKey(u) { return CLOUD_SESSION_PREFIX + String(u).toLowerCase().replace(/[^a-z0-9_\-]/g, '_').slice(0, 40); }
+    function fbPutKeepalive(path, value) {
+      const url = fbPath(path);
+      try {
+        fetch(url, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(value),
+          keepalive: true,
+          cache: 'no-store'
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    function safeId(u) {
+      return String(u || '').toLowerCase().replace(/[^a-z0-9_\-]/g, '_').slice(0, 40);
+    }
 
     async function isUsernameClaimedCloud(username) {
-      const v = await cloudGet(claimKey(username));
-      if (v === null) return { ok: false, offline: true, claimed: false };
-      return { ok: true, offline: false, claimed: v > 0 };
+      const v = await fbGet('claims/' + safeId(username));
+      if (v === null && v !== 0 && v !== false) {
+        // null can mean missing OR network error — try again carefully
+      }
+      // Firebase returns null for missing keys (fetch ok). Network fail also null.
+      // Treat explicit true/1 as claimed; null as free if request succeeded is hard.
+      try {
+        const r = await fetch(fbPath('claims/' + safeId(username)), { cache: 'no-store' });
+        if (!r.ok) return { ok: false, offline: true, claimed: false };
+        const j = await r.json();
+        return { ok: true, offline: false, claimed: !!(j === true || j === 1 || j === '1') };
+      } catch {
+        return { ok: false, offline: true, claimed: false };
+      }
     }
     async function claimUsernameCloud(username) {
-      // Atomic-ish: read then set. If already >0, fail.
       const check = await isUsernameClaimedCloud(username);
       if (check.offline) return { ok: false, offline: true };
       if (check.claimed) return { ok: false, offline: false, taken: true };
-      const set = await cloudSet(claimKey(username), 1);
-      if (set === null) return { ok: false, offline: true };
-      // Re-read (best-effort race detection)
-      const again = await cloudGet(claimKey(username));
+      const put = await fbPut('claims/' + safeId(username), true);
+      if (put === null) return { ok: false, offline: true };
       return { ok: true, offline: false, taken: false };
     }
     async function isSessionActiveCloud(username) {
-      const v = await cloudGet(sessKey(username));
-      if (v === null) return { offline: true, active: false };
-      // value stores expiry timestamp (unix seconds)
-      const now = Math.floor(Date.now() / 1000);
-      return { offline: false, active: v > now, expiresIn: Math.max(0, v - now) };
+      try {
+        const r = await fetch(fbPath('sessions/' + safeId(username)), { cache: 'no-store' });
+        if (!r.ok) return { offline: true, active: false };
+        const exp = parseInt(await r.json(), 10) || 0;
+        const now = Math.floor(Date.now() / 1000);
+        return { offline: false, active: exp > now, expiresIn: Math.max(0, exp - now) };
+      } catch {
+        return { offline: true, active: false };
+      }
     }
     async function startCloudSession(username) {
       if (!username) return;
-      // Live lock: renew every 15s, expires 2 min after last heartbeat
       const exp = Math.floor(Date.now() / 1000) + 120;
-      await cloudSet(sessKey(username), exp);
+      await fbPut('sessions/' + safeId(username), exp);
+      // presence for admin
+      await fbPut('presence/' + safeId(username), { online: true, lastSeen: Date.now() });
       if (sessionHeartbeat) clearInterval(sessionHeartbeat);
       sessionHeartbeat = setInterval(async () => {
         if (!currentUser || currentUser.username !== username) {
@@ -754,12 +776,16 @@
           return;
         }
         const exp2 = Math.floor(Date.now() / 1000) + 120;
-        await cloudSet(sessKey(username), exp2);
+        await fbPut('sessions/' + safeId(username), exp2);
+        await fbPut('presence/' + safeId(username), { online: true, lastSeen: Date.now() });
       }, 15000);
     }
     function endCloudSession(username) {
       if (sessionHeartbeat) { clearInterval(sessionHeartbeat); sessionHeartbeat = null; }
-      if (username) cloudSetKeepalive(sessKey(username), 0);
+      if (username) {
+        fbPutKeepalive('sessions/' + safeId(username), 0);
+        fbPutKeepalive('presence/' + safeId(username), { online: false, lastSeen: Date.now() });
+      }
     }
 
     async function createAccount(username, password, email) {
@@ -2007,9 +2033,27 @@
       }
     }
 
-    document.getElementById('adminBtn').onclick = () => {
+    async function pullFirebasePresence() {
+      try {
+        const data = await fbGet('presence');
+        if (!data || typeof data !== 'object') return;
+        const p = getPresence();
+        const now = Date.now();
+        Object.keys(data).forEach(u => {
+          const row = data[u] || {};
+          p[u] = {
+            online: !!row.online && (now - (row.lastSeen || 0) < 120000),
+            lastSeen: row.lastSeen || now
+          };
+        });
+        setPresence(p);
+      } catch (e) {}
+    }
+
+    document.getElementById('adminBtn').onclick = async () => {
       if (!canOpenAdmin()) { showToast('Access denied'); return; }
       if (isAdmin()) {
+        await pullFirebasePresence();
         // Full admin
         document.getElementById('adminHeader').querySelector('h2').textContent = '⚡ Live Admin — cakecheeks22';
         document.getElementById('adminMoneyBtn').style.display = '';
@@ -2077,9 +2121,12 @@
     };
 
     // Refresh live admin panel while open
-    setInterval(() => {
+    setInterval(async () => {
       const ov = document.getElementById('adminOverlay');
-      if (ov && ov.classList.contains('open') && isAdmin()) renderAdminStats();
+      if (ov && ov.classList.contains('open') && isAdmin()) {
+        await pullFirebasePresence();
+        renderAdminStats();
+      }
     }, 4000);
 
     document.getElementById('depositOmegaBtn').onclick = () => {
@@ -2374,78 +2421,43 @@
     updateHomeAccount();
 
     let gameStarted = false;
-    // REAL shared player count — removes you when tab closes / idle / sign-out
-    const ONLINE_KEY = 'petpathtycoon_classic_online_v1';
-    const PLAYS_KEY = 'petpathtycoon_classic_plays_v1';
-    const COUNT_API = 'https://countapi.mileshilliard.com/api/v1';
+    // REAL shared player count via Firebase
     const IDLE_MS = 45000; // 45 seconds without interaction = offline
     let countedOnline = false;
     let lastKnownOnline = 0;
     let lastActivityAt = Date.now();
     let idleTimer = null;
 
-    async function countApiGet(key) {
-      try {
-        const r = await fetch(COUNT_API + '/get/' + encodeURIComponent(key), { cache: 'no-store' });
-        const j = await r.json();
-        const v = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
-        return Number.isFinite(v) ? v : 0;
-      } catch { return null; }
-    }
-    async function countApiSet(key, value) {
-      try {
-        const v = Math.max(0, Math.floor(value));
-        const r = await fetch(COUNT_API + '/set/' + encodeURIComponent(key) + '?value=' + v, { cache: 'no-store' });
-        const j = await r.json();
-        const n = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
-        return Number.isFinite(n) ? n : v;
-      } catch { return null; }
-    }
-    async function countApiHit(key) {
-      try {
-        const r = await fetch(COUNT_API + '/hit/' + encodeURIComponent(key), { cache: 'no-store' });
-        const j = await r.json();
-        const n = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
-        return Number.isFinite(n) ? n : null;
-      } catch { return null; }
-    }
-
-    // Fire-and-forget set that SURVIVES tab close (keepalive)
-    function countApiSetKeepalive(key, value) {
-      const v = Math.max(0, Math.floor(value));
-      const url = COUNT_API + '/set/' + encodeURIComponent(key) + '?value=' + v;
-      try {
-        fetch(url, { method: 'GET', keepalive: true, cache: 'no-store' }).catch(() => {});
-      } catch (e) {}
-      // Extra attempt via Image beacon (also works on many mobile browsers when closing)
-      try {
-        const img = new Image();
-        img.src = url + '&_t=' + Date.now();
-      } catch (e) {}
-    }
-
     async function refreshPlayerCount() {
       const el = document.getElementById('playerCount');
       if (!el) return;
-      const n = await countApiGet(ONLINE_KEY);
-      if (n === null) {
+      try {
+        const r = await fetch(fbPath('online_count'), { cache: 'no-store' });
+        if (!r.ok) { el.textContent = '…'; return; }
+        const n = parseInt(await r.json(), 10);
+        if (!Number.isFinite(n)) { el.textContent = '…'; return; }
+        lastKnownOnline = n;
+        el.textContent = String(Math.max(0, n));
+      } catch {
         el.textContent = '…';
-        return;
       }
-      lastKnownOnline = n;
-      el.textContent = String(Math.max(0, n));
     }
 
     async function joinOnlineCount() {
       if (countedOnline) return;
       if (!gameStarted) return;
-      let n = await countApiGet(ONLINE_KEY);
-      if (n === null) n = 0;
-      const next = n + 1;
-      const setVal = await countApiSet(ONLINE_KEY, next);
-      lastKnownOnline = setVal !== null ? setVal : next;
+      let n = 0;
+      try {
+        const r = await fetch(fbPath('online_count'), { cache: 'no-store' });
+        if (r.ok) {
+          const v = parseInt(await r.json(), 10);
+          if (Number.isFinite(v)) n = v;
+        }
+      } catch (e) {}
+      const next = Math.max(0, n) + 1;
+      await fbPut('online_count', next);
+      lastKnownOnline = next;
       countedOnline = true;
-      countApiHit(PLAYS_KEY);
       await refreshPlayerCount();
     }
 
@@ -2454,10 +2466,13 @@
       countedOnline = false;
       const next = Math.max(0, (lastKnownOnline || 1) - 1);
       lastKnownOnline = next;
-      countApiSetKeepalive(ONLINE_KEY, next);
+      fbPutKeepalive('online_count', next);
       const el = document.getElementById('playerCount');
       if (el) el.textContent = String(next);
-      try { if (currentUser) markUserOffline(currentUser.username); } catch(e) {}
+      try {
+        const id = currentUser ? currentUser.username : guestId;
+        if (id) markUserOffline(id);
+      } catch(e) {}
       try { if (currentUser) endCloudSession(currentUser.username); } catch(e) {}
     }
 
