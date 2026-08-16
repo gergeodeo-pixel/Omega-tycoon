@@ -1936,31 +1936,54 @@
         if (presence[n] && presence[n].online) onlineCount++;
       });
 
+      // Include anyone seen in Firebase presence even if missing from local maps
+      Object.keys(presence).forEach(id => {
+        if (!id) return;
+        if (String(id).startsWith('guest_')) {
+          if (!guests[id]) guests[id] = { created: Date.now(), save: { money: 25, owned: {} } };
+        } else if (!accounts[id]) {
+          accounts[id] = { passwordHash: '', email: '', created: Date.now(), save: { money: 25, owned: {} } };
+        }
+      });
+      const names2 = Object.keys(accounts).sort();
+      const guestNames2 = Object.keys(guests).sort();
+      onlineCount = 0;
+      names2.forEach(n => { if (presence[n] && presence[n].online) onlineCount++; });
+      guestNames2.forEach(n => { if (presence[n] && presence[n].online) onlineCount++; });
+
       if (statsEl) {
         statsEl.innerHTML =
-          `<b style="color:#fff;">Accounts:</b> ${names.length} &nbsp;|&nbsp; ` +
-          `<b style="color:#90caf9;">Guests:</b> ${guestNames.length}<br>` +
-          `<b style="color:#81c784;">Live online:</b> ${onlineCount}<br>` +
+          `<b style="color:#fff;">Accounts:</b> ${names2.length} &nbsp;|&nbsp; ` +
+          `<b style="color:#90caf9;">Guests:</b> ${guestNames2.length}<br>` +
+          `<b style="color:#81c784;">Live online now:</b> ${onlineCount}<br>` +
           `<b style="color:#fff;">Banned:</b> ${bans.length}<br>` +
           `<b style="color:#fff;">Combined money:</b> ${formatMoney(totalMoney)}`;
       }
 
       if (liveEl) {
-        const log = getActivityLog().slice(0, 25);
-        liveEl.innerHTML = log.length
-          ? log.map(e => {
-              const t = new Date(e.ts).toLocaleTimeString();
-              const col = e.type === 'login' ? '#81c784' : (e.type === 'offline' ? '#ef9a9a' : '#90caf9');
-              return `<div><span style="color:#666;">${t}</span> <b style="color:${col};">${e.type}</b> <b style="color:#fff;">${e.username}</b></div>`;
-            }).join('')
-          : '<span style="color:#666;">No logins yet — activity appears when players sign in.</span>';
+        const onlineNow = Object.keys(presence).filter(u => presence[u] && presence[u].online);
+        const log = getActivityLog().slice(0, 15);
+        liveEl.innerHTML =
+          `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #333;">
+            <b style="color:#39ff14;">● ONLINE NOW (${onlineNow.length})</b><br>` +
+          (onlineNow.length
+            ? onlineNow.map(u => `<span style="color:#81c784;margin-right:8px;">${u}</span>`).join('')
+            : '<span style="color:#666;">Nobody online in Firebase presence</span>') +
+          `</div>` +
+          (log.length
+            ? log.map(e => {
+                const t = new Date(e.ts).toLocaleTimeString();
+                const col = e.type === 'login' ? '#81c784' : (e.type === 'offline' ? '#ef9a9a' : '#90caf9');
+                return `<div><span style="color:#666;">${t}</span> <b style="color:${col};">${e.type}</b> <b style="color:#fff;">${e.username}</b></div>`;
+              }).join('')
+            : '');
       }
 
       if (invEl) {
-        // Build unified list: real accounts + guests
+        // Build unified list: accounts + guests + anyone from presence
         const rows = [];
-        names.forEach(n => rows.push({ id: n, kind: 'account', save: (accounts[n].save || { money: 0, owned: {} }) }));
-        guestNames.forEach(n => rows.push({ id: n, kind: 'guest', save: ((guests[n] && guests[n].save) || { money: 0, owned: {} }) }));
+        names2.forEach(n => rows.push({ id: n, kind: 'account', save: (accounts[n].save || { money: 0, owned: {} }) }));
+        guestNames2.forEach(n => rows.push({ id: n, kind: 'guest', save: ((guests[n] && guests[n].save) || { money: 0, owned: {} }) }));
         if (!rows.length) {
           invEl.innerHTML = '<span style="color:#666;font-size:12px;">No accounts or guests yet.</span>';
         } else {
@@ -2104,7 +2127,7 @@
       try {
         const data = await fbGet('presence');
         const sessions = await fbGet('sessions');
-        const p = getPresence();
+        const p = {};
         const now = Date.now();
         const nowSec = Math.floor(now / 1000);
         const ids = new Set([
@@ -2114,15 +2137,19 @@
         ids.forEach(u => {
           const row = (data && data[u]) || {};
           const exp = parseInt((sessions && sessions[u]) || 0, 10) || 0;
-          const fresh = !!row.online && (now - (row.lastSeen || 0) < 120000);
+          const fresh = !!row.online && (now - (row.lastSeen || 0) < 180000);
           const sessLive = exp > nowSec;
           p[u] = {
             online: fresh || sessLive,
-            lastSeen: row.lastSeen || now
+            lastSeen: row.lastSeen || (sessLive ? now : 0),
+            name: row.name || u
           };
         });
         setPresence(p);
-      } catch (e) {}
+        return p;
+      } catch (e) {
+        return getPresence();
+      }
     }
     async function pullFirebaseSavesIntoAdmin() {
       try {
@@ -2133,13 +2160,23 @@
         Object.keys(data).forEach(id => {
           const save = data[id];
           if (!save || typeof save.money !== 'number') return;
-          if (id.startsWith('guest_')) {
+          if (String(id).startsWith('guest_')) {
             guests[id] = guests[id] || { created: Date.now() };
             guests[id].save = save;
             guests[id].lastSeen = Date.now();
           } else {
             accounts[id] = accounts[id] || { passwordHash: '', email: '', created: Date.now() };
             accounts[id].save = save;
+          }
+        });
+        // Also create stub entries for anyone currently online in presence
+        // so admin can see/edit them even before a save exists
+        const presence = getPresence();
+        Object.keys(presence).forEach(id => {
+          if (String(id).startsWith('guest_')) {
+            guests[id] = guests[id] || { created: Date.now(), save: { money: 25, owned: {}, version: 3 } };
+          } else if (id && id !== 'undefined') {
+            accounts[id] = accounts[id] || { passwordHash: '', email: '', created: Date.now(), save: { money: 25, owned: {}, version: 3 } };
           }
         });
         setAccounts(accounts);
@@ -2226,7 +2263,7 @@
         await pullFirebaseSavesIntoAdmin();
         renderAdminStats();
       }
-    }, 4000);
+    }, 2000);
 
     document.getElementById('depositOmegaBtn').onclick = () => {
       if (machineDeposit.length >= 5) { showToast('Machine full (5/5)'); return; }
