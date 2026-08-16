@@ -2581,47 +2581,63 @@
     let lastActivityAt = Date.now();
     let idleTimer = null;
 
+    async function countLivePlayersFromFirebase() {
+      try {
+        const data = await fbGet('presence');
+        const sessions = await fbGet('sessions');
+        const now = Date.now();
+        const nowSec = Math.floor(now / 1000);
+        const ids = new Set([
+          ...Object.keys(data || {}),
+          ...Object.keys(sessions || {})
+        ]);
+        let live = 0;
+        ids.forEach(u => {
+          const row = (data && data[u]) || {};
+          const exp = parseInt((sessions && sessions[u]) || 0, 10) || 0;
+          const fresh = row.lastSeen && (now - row.lastSeen < 90000);
+          const sessLive = exp > nowSec;
+          if (fresh || sessLive) live++;
+        });
+        return live;
+      } catch {
+        return null;
+      }
+    }
+
     async function refreshPlayerCount() {
       const el = document.getElementById('playerCount');
       if (!el) return;
-      try {
-        const r = await fetch(fbPath('online_count'), { cache: 'no-store' });
-        if (!r.ok) { el.textContent = '…'; return; }
-        const n = parseInt(await r.json(), 10);
-        if (!Number.isFinite(n)) { el.textContent = '…'; return; }
-        lastKnownOnline = n;
-        el.textContent = String(Math.max(0, n));
-      } catch {
+      // Source of truth = live heartbeats (same as admin), NOT sticky counter
+      const live = await countLivePlayersFromFirebase();
+      if (live === null) {
         el.textContent = '…';
+        return;
       }
+      lastKnownOnline = live;
+      el.textContent = String(Math.max(0, live));
+      // Keep online_count in sync so it stops drifting high
+      try { await fbPut('online_count', Math.max(0, live)); } catch (e) {}
     }
 
     async function joinOnlineCount() {
       if (countedOnline) return;
       if (!gameStarted) return;
-      let n = 0;
+      countedOnline = true;
+      // Presence heartbeat is the real join signal
       try {
-        const r = await fetch(fbPath('online_count'), { cache: 'no-store' });
-        if (r.ok) {
-          const v = parseInt(await r.json(), 10);
-          if (Number.isFinite(v)) n = v;
+        const id = activeIdentity();
+        if (id) {
+          markUserOnline(id);
+          await startCloudSession(id);
         }
       } catch (e) {}
-      const next = Math.max(0, n) + 1;
-      await fbPut('online_count', next);
-      lastKnownOnline = next;
-      countedOnline = true;
       await refreshPlayerCount();
     }
 
     function leaveOnlineCount() {
       if (!countedOnline) return;
       countedOnline = false;
-      const next = Math.max(0, (lastKnownOnline || 1) - 1);
-      lastKnownOnline = next;
-      fbPutKeepalive('online_count', next);
-      const el = document.getElementById('playerCount');
-      if (el) el.textContent = String(next);
       try {
         const id = currentUser ? currentUser.username : (guestId || activeIdentity());
         if (id) {
@@ -2629,6 +2645,8 @@
           endCloudSession(id);
         }
       } catch(e) {}
+      // Recount from Firebase after marking offline
+      refreshPlayerCount();
     }
 
     function noteActivity() {
