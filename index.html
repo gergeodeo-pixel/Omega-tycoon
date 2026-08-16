@@ -571,6 +571,44 @@
     }
     function setAccounts(obj) { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(obj)); }
 
+    // ===== GUEST IDs (no account → guest_####) =====
+    const GUESTS_KEY = 'petPathTycoon_guests';
+    let guestId = null; // e.g. guest_1042
+
+    function getGuests() {
+      try { return JSON.parse(localStorage.getItem(GUESTS_KEY) || '{}'); } catch { return {}; }
+    }
+    function setGuests(obj) { localStorage.setItem(GUESTS_KEY, JSON.stringify(obj)); }
+
+    function ensureGuestId() {
+      if (currentUser) { guestId = null; return null; }
+      let id = localStorage.getItem(STORAGE_KEY + '_guestId');
+      if (!id || !/^guest_\d+$/.test(id)) {
+        // Unique-ish number for this browser
+        const n = Math.floor(1000 + Math.random() * 9000);
+        id = 'guest_' + n;
+        // avoid collision in local guest map
+        const guests = getGuests();
+        let guard = 0;
+        while (guests[id] && guard++ < 20) {
+          id = 'guest_' + Math.floor(1000 + Math.random() * 9000);
+        }
+        localStorage.setItem(STORAGE_KEY + '_guestId', id);
+      }
+      guestId = id;
+      // Keep guest record updated
+      const guests = getGuests();
+      guests[id] = guests[id] || { created: Date.now(), save: null };
+      guests[id].lastSeen = Date.now();
+      setGuests(guests);
+      return id;
+    }
+
+    function activeIdentity() {
+      if (currentUser) return currentUser.username;
+      return guestId || ensureGuestId();
+    }
+
     function getSaveData() {
       return { money: Math.floor(money), owned: { ...owned }, powers: { ...powers }, version: 3, ts: Date.now() };
     }
@@ -594,7 +632,6 @@
     }
     function saveProgress() {
       const data = getSaveData();
-      // ALWAYS save a global snapshot (this is what restores after close/reopen)
       try {
         localStorage.setItem(STORAGE_KEY + '_snapshot', JSON.stringify(data));
         localStorage.setItem(STORAGE_KEY + '_money', String(Math.floor(money)));
@@ -607,6 +644,17 @@
           accounts[currentUser.username].save = data;
           setAccounts(accounts);
           localStorage.setItem(STORAGE_KEY + '_last', currentUser.username);
+        }
+      } else {
+        // Save under guest_#### so admin can edit guest progress
+        const gid = ensureGuestId();
+        if (gid) {
+          const guests = getGuests();
+          guests[gid] = guests[gid] || { created: Date.now() };
+          guests[gid].save = data;
+          guests[gid].lastSeen = Date.now();
+          setGuests(guests);
+          localStorage.setItem(STORAGE_KEY + '_guestId', gid);
         }
       }
     }
@@ -819,11 +867,11 @@
       if (currentUser) {
         nameEl.textContent = currentUser.username;
         signOutBtn.style.display = 'block';
-        // Admin check
         const showAdm = currentUser.username === 'cakecheeks22' || currentUser.username === 'ilovecake1' || powersMaxed();
         if (adminBtn) adminBtn.style.display = showAdm ? 'inline-block' : 'none';
       } else {
-        nameEl.textContent = 'Guest';
+        const gid = ensureGuestId();
+        nameEl.textContent = gid || 'Guest';
         signOutBtn.style.display = 'none';
         if (adminBtn) adminBtn.style.display = powersMaxed() ? 'inline-block' : 'none';
       }
@@ -1782,7 +1830,9 @@
       if (!isAdmin()) return;
       ensureAdminAccount();
       const accounts = getAccounts();
+      const guests = getGuests();
       const names = Object.keys(accounts).sort();
+      const guestNames = Object.keys(guests).sort();
       const bans = getBanList();
       const presence = getPresence();
       const statsEl = document.getElementById('adminStats');
@@ -1797,10 +1847,16 @@
         if (s && typeof s.money === 'number') totalMoney += s.money;
         if (presence[n] && presence[n].online) onlineCount++;
       });
+      guestNames.forEach(n => {
+        const s = guests[n] && guests[n].save;
+        if (s && typeof s.money === 'number') totalMoney += s.money;
+        if (presence[n] && presence[n].online) onlineCount++;
+      });
 
       if (statsEl) {
         statsEl.innerHTML =
           `<b style="color:#fff;">Accounts:</b> ${names.length} &nbsp;|&nbsp; ` +
+          `<b style="color:#90caf9;">Guests:</b> ${guestNames.length}<br>` +
           `<b style="color:#81c784;">Live online:</b> ${onlineCount}<br>` +
           `<b style="color:#fff;">Banned:</b> ${bans.length}<br>` +
           `<b style="color:#fff;">Combined money:</b> ${formatMoney(totalMoney)}`;
@@ -1818,12 +1874,16 @@
       }
 
       if (invEl) {
-        if (!names.length) {
-          invEl.innerHTML = '<span style="color:#666;font-size:12px;">No accounts yet.</span>';
+        // Build unified list: real accounts + guests
+        const rows = [];
+        names.forEach(n => rows.push({ id: n, kind: 'account', save: (accounts[n].save || { money: 0, owned: {} }) }));
+        guestNames.forEach(n => rows.push({ id: n, kind: 'guest', save: ((guests[n] && guests[n].save) || { money: 0, owned: {} }) }));
+        if (!rows.length) {
+          invEl.innerHTML = '<span style="color:#666;font-size:12px;">No accounts or guests yet.</span>';
         } else {
-          invEl.innerHTML = names.map(n => {
-            const acc = accounts[n];
-            const save = acc.save || { money: 0, owned: {} };
+          invEl.innerHTML = rows.map(row => {
+            const n = row.id;
+            const save = row.save || { money: 0, owned: {} };
             const own = save.owned || {};
             const mon = Math.floor(save.money || 0);
             const petLines = Object.keys(own).map(id => {
@@ -1835,19 +1895,21 @@
             const status = isOn
               ? '<span style="color:#39ff14;">● ONLINE</span>'
               : '<span style="color:#888;">○ offline</span>';
+            const labelColor = n === 'cakecheeks22' ? '#ffd54f' : (row.kind === 'guest' ? '#80cbc4' : '#90caf9');
+            const tag = n === 'cakecheeks22' ? ' (ADMIN)' : (row.kind === 'guest' ? ' (GUEST)' : '');
             return `<div style="background:#0f0f1a;border:1px solid ${banned?'#ef5350':(isOn?'#39ff14':'#333')};border-radius:10px;padding:10px;margin-bottom:10px;">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                 <div>
-                  <b style="color:${n==='cakecheeks22'?'#ffd54f':'#90caf9'};">${n}${n==='cakecheeks22'?' (ADMIN)':''}${banned?' 🚫':''}</b>
+                  <b style="color:${labelColor};">${n}${tag}${banned?' 🚫':''}</b>
                   <div style="font-size:11px;margin-top:2px;">${status}</div>
                 </div>
                 <span style="color:#ffd54f;font-weight:700;">${formatMoney(mon)}</span>
               </div>
               <div style="color:#aaa;font-size:11px;line-height:1.35;margin:6px 0;">${petLines}</div>
               <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
-                <input type="number" data-money-user="${n}" value="${mon}" style="width:110px;padding:6px;border-radius:6px;border:1px solid #444;background:#111;color:#fff;font-size:12px;">
-                <button class="btn" data-set-money="${n}" style="padding:6px 10px;font-size:11px;">Set money</button>
-                <button class="btn secondary" data-wipe="${n}" style="padding:6px 10px;font-size:11px;">Wipe pets</button>
+                <input type="number" data-money-user="${n}" data-kind="${row.kind}" value="${mon}" style="width:110px;padding:6px;border-radius:6px;border:1px solid #444;background:#111;color:#fff;font-size:12px;">
+                <button class="btn" data-set-money="${n}" data-kind="${row.kind}" style="padding:6px 10px;font-size:11px;">Set money</button>
+                <button class="btn secondary" data-wipe="${n}" data-kind="${row.kind}" style="padding:6px 10px;font-size:11px;">Wipe pets</button>
                 ${n !== 'cakecheeks22' ? `<button class="btn close" data-ban="${n}" style="padding:6px 10px;font-size:11px;">${banned?'Unban':'Ban'}</button>` : ''}
               </div>
             </div>`;
@@ -1857,16 +1919,27 @@
             btn.onclick = () => {
               if (!isAdmin()) return;
               const u = btn.dataset.setMoney;
+              const kind = btn.dataset.kind || 'account';
               const input = invEl.querySelector(`[data-money-user="${u}"]`);
               const val = Math.max(0, Math.floor(Number(input && input.value) || 0));
-              const accounts = getAccounts();
-              if (!accounts[u]) return;
-              accounts[u].save = accounts[u].save || { owned: {}, version: 2 };
-              accounts[u].save.money = val;
-              accounts[u].save.ts = Date.now();
-              setAccounts(accounts);
-              // Live apply if they are the current session
-              if (currentUser && currentUser.username === u) {
+              if (kind === 'guest') {
+                const guests = getGuests();
+                guests[u] = guests[u] || { created: Date.now() };
+                guests[u].save = guests[u].save || { owned: {}, version: 3 };
+                guests[u].save.money = val;
+                guests[u].save.ts = Date.now();
+                guests[u].lastSeen = Date.now();
+                setGuests(guests);
+              } else {
+                const accounts = getAccounts();
+                if (!accounts[u]) return;
+                accounts[u].save = accounts[u].save || { owned: {}, version: 3 };
+                accounts[u].save.money = val;
+                accounts[u].save.ts = Date.now();
+                setAccounts(accounts);
+              }
+              // Live apply if current session matches
+              if ((currentUser && currentUser.username === u) || (!currentUser && guestId === u)) {
                 money = val;
                 updateHUD();
                 saveProgress();
@@ -1880,13 +1953,23 @@
             btn.onclick = () => {
               if (!isAdmin()) return;
               const u = btn.dataset.wipe;
-              const accounts = getAccounts();
-              if (!accounts[u]) return;
-              accounts[u].save = accounts[u].save || {};
-              accounts[u].save.owned = {};
-              accounts[u].save.ts = Date.now();
-              setAccounts(accounts);
-              if (currentUser && currentUser.username === u) {
+              const kind = btn.dataset.kind || 'account';
+              if (kind === 'guest') {
+                const guests = getGuests();
+                guests[u] = guests[u] || { created: Date.now() };
+                guests[u].save = guests[u].save || {};
+                guests[u].save.owned = {};
+                guests[u].save.ts = Date.now();
+                setGuests(guests);
+              } else {
+                const accounts = getAccounts();
+                if (!accounts[u]) return;
+                accounts[u].save = accounts[u].save || {};
+                accounts[u].save.owned = {};
+                accounts[u].save.ts = Date.now();
+                setAccounts(accounts);
+              }
+              if ((currentUser && currentUser.username === u) || (!currentUser && guestId === u)) {
                 owned = {};
                 activePets.forEach(m => scene.remove(m));
                 activePets.length = 0;
@@ -2269,12 +2352,12 @@
         calcTotalIncome();
       }
 
+      if (!currentUser) ensureGuestId();
       updateHUD();
       updateAccountUI();
 
       if (restored) {
-        const who = currentUser ? currentUser.username : 'Guest';
-        showToast('Welcome back' + (currentUser ? ', ' + currentUser.username : '') + ' — money & pets restored!');
+        showToast('Welcome back' + (currentUser ? ', ' + currentUser.username : (guestId ? ', ' + guestId : '')) + ' — money & pets restored!');
       }
 
       // Keep the save chain going
@@ -2286,7 +2369,7 @@
       const el = document.getElementById('homeAccount');
       if (!el) return;
       if (currentUser) el.textContent = 'Signed in as ' + currentUser.username;
-      else el.textContent = 'Playing as Guest — create an account in-game to save';
+      else el.textContent = 'Playing as ' + (ensureGuestId() || 'Guest') + ' — create an account to lock your name';
     }
     updateHomeAccount();
 
@@ -2447,6 +2530,10 @@
       try { saveProgress(); } catch (err) {}
       try { noteActivity(); } catch (err) {}
       try { if (currentUser) startCloudSession(currentUser.username); } catch (err) {}
+      try {
+        const id = activeIdentity();
+        if (id) markUserOnline(id);
+      } catch (err) {}
       const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
       if (joyWrap) joyWrap.style.display = isTouch ? 'block' : 'none';
       if (teleportBtn) teleportBtn.style.display = (isTouch && (powers.teleport || 0) > 0) ? 'flex' : 'none';
