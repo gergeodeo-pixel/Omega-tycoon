@@ -7,7 +7,9 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; background: #0a0a14; font-family: 'Segoe UI', system-ui, sans-serif; user-select: none; }
-    canvas { display: block; }
+    canvas { display: block; position: absolute; inset: 0; z-index: 1; pointer-events: auto; }
+    #homeScreen, #hud, #controls, #hint, #toast, #joyWrap, #teleportBtn, #machineHint { pointer-events: auto; }
+    #homeScreen { z-index: 200 !important; }
     #homeScreen {
       position: absolute; inset: 0; z-index: 100;
       background: linear-gradient(160deg, #0f0c29 0%, #302b63 45%, #24243e 100%);
@@ -59,7 +61,7 @@
     #hud {
       position: absolute; top: 12px; left: 12px; right: 12px;
       display: flex; justify-content: space-between; align-items: flex-start;
-      pointer-events: none; gap: 10px; z-index: 5;
+      pointer-events: none; gap: 10px; z-index: 50;
     }
     .panel {
       background: rgba(15, 15, 30, 0.82); color: #fff;
@@ -77,8 +79,9 @@
     #accountName { font-size: 14px; font-weight: 700; color: #90caf9; }
     #controls {
       position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-      display: flex; gap: 8px; pointer-events: auto; z-index: 5; flex-wrap: wrap; justify-content: center;
+      display: flex; gap: 8px; pointer-events: auto; z-index: 50; flex-wrap: wrap; justify-content: center;
     }
+    #controls .btn { pointer-events: auto; position: relative; z-index: 51; }
     .btn {
       background: linear-gradient(180deg, #5c6bc0, #3949ab);
       color: #fff; border: none; padding: 11px 18px; border-radius: 28px;
@@ -92,23 +95,24 @@
     .btn.account { background: linear-gradient(180deg, #42a5f5, #1e88e5); }
     .btn.close { background: linear-gradient(180deg, #ef5350, #c62828); }
     .btn.secondary { background: linear-gradient(180deg, #78909c, #546e7a); }
-    #shopOverlay, #authOverlay, #saveOverlay, #machineOverlay, #fuseResultOverlay, #adminOverlay {
+    #shopOverlay, #authOverlay, #saveOverlay, #machineOverlay, #fuseResultOverlay, #adminOverlay, #powersOverlay {
       position: absolute; inset: 0; background: rgba(0,0,0,0.6);
       display: none; justify-content: center; align-items: center;
-      pointer-events: auto; z-index: 30;
+      pointer-events: auto; z-index: 100;
     }
-    #shopOverlay.open, #authOverlay.open, #saveOverlay.open, #machineOverlay.open, #fuseResultOverlay.open, #adminOverlay.open { display: flex; }
-    #shopPanel, #authPanel, #savePanel, #machinePanel, #adminPanel {
+    #shopOverlay.open, #authOverlay.open, #saveOverlay.open, #machineOverlay.open, #fuseResultOverlay.open, #adminOverlay.open, #powersOverlay.open { display: flex; }
+    #shopPanel, #authPanel, #savePanel, #machinePanel, #adminPanel, #powersPanel {
       background: #1a1a2e; width: min(920px, 96vw); max-height: 88vh;
       border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
       border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.55);
     }
     #authPanel, #savePanel { width: min(420px, 94vw); max-height: none; }
-    #shopHeader, #authHeader, #saveHeader, #machineHeader {
+    #shopHeader, #authHeader, #saveHeader, #machineHeader, #powersHeader {
       padding: 14px 18px; background: #16213e; display: flex;
       justify-content: space-between; align-items: center;
     }
-    #shopHeader h2, #authHeader h2, #saveHeader h2, #machineHeader h2, #adminHeader h2 { font-size: 18px; color: #fff; }
+    #shopHeader h2, #authHeader h2, #saveHeader h2, #machineHeader h2, #adminHeader h2, #powersHeader h2 { font-size: 18px; color: #fff; }
+    #powersHeader { background: #4a148c; }
     #adminHeader { padding: 14px 18px; background: #3b0000; display: flex; justify-content: space-between; align-items: center; }
 
     #fuseResultPanel {
@@ -219,6 +223,7 @@
 
   <div id="controls">
     <button class="btn shop" id="shopBtn">🛒 Shop</button>
+    <button class="btn" id="powersBtn" style="background:linear-gradient(180deg,#ab47bc,#6a1b9a);">✨ Powers</button>
     <button class="btn account" id="accountBtn">👤 Account</button>
     <button class="btn secondary" id="saveBtn">💾 Save Code</button>
     <button class="btn" id="adminBtn" style="display:none;background:linear-gradient(180deg,#ff1744,#c62828);">⚡ Admin</button>
@@ -226,7 +231,14 @@
   <div id="machineHint" style="display:none;position:absolute;bottom:70px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#39ff14;padding:8px 16px;border-radius:16px;font-size:13px;font-weight:700;pointer-events:none;z-index:6;border:1px solid #39ff14;">
     Click the green machine to open Fusion
   </div>
-  <div id="hint">WASD / Arrows to walk • Pets walk the red path & earn money</div>
+  <div id="hint">WASD / Arrows / Joystick to walk • Pets walk the red path & earn money</div>
+  <!-- Mobile virtual joystick -->
+  <div id="joyWrap" style="display:none;position:absolute;left:16px;bottom:90px;width:120px;height:120px;z-index:40;touch-action:none;">
+    <div id="joyBase" style="width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,0.35);border:2px solid rgba(255,255,255,0.35);position:relative;touch-action:none;">
+      <div id="joyKnob" style="width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,0.55);border:2px solid rgba(255,255,255,0.8);position:absolute;left:33px;top:33px;touch-action:none;"></div>
+    </div>
+  </div>
+  <div id="teleportBtn" style="display:none;position:absolute;right:16px;bottom:100px;width:64px;height:64px;border-radius:50%;background:rgba(128,216,255,0.35);border:2px solid rgba(128,216,255,0.8);color:#e0f7fa;font-weight:800;font-size:12px;z-index:8;align-items:center;justify-content:center;text-align:center;line-height:64px;touch-action:none;">TP</div>
   <div id="toast"></div>
 
   <!-- Fusion Machine UI -->
@@ -239,7 +251,7 @@
       <div style="padding:16px 18px;">
         <p style="font-size:13px;color:#ccc;margin-bottom:12px;line-height:1.45;">
           Deposit <b style="color:#ffd700;">5 Omega</b> pets to attempt a fusion.<br>
-          <b style="color:#39ff14;">1% chance</b> to create <b>Zombify</b> (OG • 20M/s).<br>
+          <b style="color:#39ff14;">1% Zombify</b> (20M/s) · <b style="color:#ffab01;">0.5% Cubify</b> (22M/s)<br>
           On failure the Omegas are consumed.
         </p>
         <div style="background:#0f0f1a;border-radius:12px;padding:14px;margin-bottom:14px;border:1px solid #333;">
@@ -251,7 +263,7 @@
         <div id="omegaList" style="max-height:140px;overflow-y:auto;margin-bottom:14px;"></div>
         <div class="auth-btns">
           <button class="btn secondary" id="depositOmegaBtn">+ Deposit 1 Omega</button>
-          <button class="btn" id="spinMachineBtn" style="background:linear-gradient(180deg,#39ff14,#1a8f0a);color:#111;">⚡ Fuse (1%)</button>
+          <button class="btn" id="spinMachineBtn" style="background:linear-gradient(180deg,#39ff14,#1a8f0a);color:#111;">⚡ Fuse (OG odds)</button>
         </div>
         <button class="btn secondary" id="clearMachineBtn" style="width:100%;margin-top:10px;">Clear deposit</button>
         <p class="auth-note" id="machineStatus" style="margin-top:12px;"></p>
@@ -269,38 +281,73 @@
     </div>
   </div>
 
-  <!-- Admin Panel -->
+  <!-- Admin Panel (cakecheeks22 only) -->
   <div id="adminOverlay">
     <div id="adminPanel">
       <div id="adminHeader">
-        <h2>⚡ Admin Panel</h2>
+        <h2>⚡ Live Admin — cakecheeks22</h2>
         <button class="btn close" id="closeAdmin">Close</button>
       </div>
       <div style="padding:16px 18px;overflow-y:auto;max-height:70vh;">
-        <p style="font-size:13px;color:#ef5350;margin-bottom:12px;">Admin only — ilovecake1</p>
-        <button class="btn" id="adminMoneyBtn" style="width:100%;background:linear-gradient(180deg,#ffd54f,#f9a825);color:#111;margin-bottom:14px;">
-          💰 Give $120 Billion
+        <p style="font-size:12px;color:#ef5350;margin-bottom:10px;">Live controls • edits apply when they reload / re-sign-in</p>
+        <button class="btn" id="adminMoneyBtn" style="width:100%;background:linear-gradient(180deg,#ffd54f,#f9a825);color:#111;margin-bottom:12px;">
+          💰 Give Myself $120 Billion
         </button>
 
-        <div style="font-size:13px;font-weight:700;color:#fff;margin:12px 0 8px;">📊 Player stats (this device)</div>
-        <div id="adminStats" style="background:#0f0f1a;border-radius:10px;padding:12px;margin-bottom:14px;font-size:12px;color:#ccc;line-height:1.5;"></div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin:8px 0 6px;">📡 Live logins</div>
+        <div id="adminLiveLog" style="background:#0f0f1a;border-radius:10px;padding:10px;margin-bottom:12px;font-size:11px;color:#bbb;max-height:120px;overflow-y:auto;line-height:1.45;"></div>
 
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">🎒 Accounts & inventories</div>
-        <div id="adminInventoryList" style="max-height:220px;overflow-y:auto;margin-bottom:14px;"></div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">📊 Stats</div>
+        <div id="adminStats" style="background:#0f0f1a;border-radius:10px;padding:10px;margin-bottom:12px;font-size:12px;color:#ccc;line-height:1.5;"></div>
 
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">🚫 Ban player</div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">👤 Accounts — edit money & inventory</div>
+        <div id="adminInventoryList" style="max-height:280px;overflow-y:auto;margin-bottom:12px;"></div>
+
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">🚫 Ban player</div>
         <div style="display:flex;gap:8px;margin-bottom:8px;">
           <input type="text" id="banUserInput" placeholder="username to ban" style="flex:1;padding:10px;border-radius:8px;border:1px solid #333;background:#0f0f1a;color:#fff;font-size:13px;">
           <button class="btn close" id="banUserBtn" style="padding:10px 14px;">Ban</button>
         </div>
-        <div id="adminBanList" style="font-size:12px;color:#ef9a9a;margin-bottom:16px;"></div>
+        <div id="adminBanList" style="font-size:12px;color:#ef9a9a;margin-bottom:14px;"></div>
 
-        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">Spawn any pet</div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">Spawn any pet (to you)</div>
         <div id="adminPetList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;"></div>
       </div>
     </div>
   </div>
 
+
+  <!-- Powers / Gamble -->
+  <div id="powersOverlay">
+    <div id="powersPanel">
+      <div id="powersHeader">
+        <h2>✨ Powers & Gamble</h2>
+        <button class="btn close" id="closePowers">Close</button>
+      </div>
+      <div style="padding:16px 18px;overflow-y:auto;max-height:75vh;">
+        <p style="font-size:13px;color:#ccc;margin-bottom:12px;line-height:1.45;">
+          Gamble money to upgrade powers. <b style="color:#e040fb;">Max all powers</b> to unlock
+          <b style="color:#ffd54f;">Limited Admin</b> (Omega spawns, 10/hour — same as ilovecake1).
+        </p>
+        <div id="powersStatus" style="background:#0f0f1a;border-radius:12px;padding:12px;margin-bottom:14px;border:1px solid #333;"></div>
+        <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:8px;">🎰 Gamble</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <button class="btn" id="gamble25" style="flex:1;background:linear-gradient(180deg,#7e57c2,#5e35b1);">Bet $25</button>
+          <button class="btn" id="gamble100" style="flex:1;background:linear-gradient(180deg,#7e57c2,#5e35b1);">Bet $100</button>
+          <button class="btn" id="gamble1k" style="flex:1;background:linear-gradient(180deg,#7e57c2,#5e35b1);">Bet $1K</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <button class="btn" id="gamble10k" style="flex:1;background:linear-gradient(180deg,#8e24aa,#4a148c);">Bet $10K</button>
+          <button class="btn" id="gamble100k" style="flex:1;background:linear-gradient(180deg,#8e24aa,#4a148c);">Bet $100K</button>
+        </div>
+        <p id="gambleResult" style="font-size:13px;color:#ce93d8;min-height:20px;margin-bottom:12px;"></p>
+        <div style="font-size:12px;color:#888;line-height:1.4;">
+          Higher bets = better chance to level up a random power.<br>
+          Light: glow + slight speed · Teleport: press T to blink forward · Shield: damage resist (future-proof)
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="shopOverlay">
     <div id="shopPanel">
@@ -338,8 +385,9 @@
         </div>
         <button class="btn secondary" id="signOutBtn" style="width:100%;margin-top:10px;display:none;">Sign Out</button>
         <p class="auth-note">
-          Progress is saved to this browser under your account.<br>
-          Use the <b>Save Code</b> button to transfer your progress to any other device.
+          Usernames are <b>reserved live worldwide</b> when you create an account.<br>
+          Progress is saved on this device — use <b>Save Code</b> to move money/pets to another device.<br>
+          Only one live login per account at a time.
         </p>
       </div>
     </div>
@@ -487,7 +535,8 @@
       { id:92, name:'Omega Titan',       rarity:'Omega',    basePrice:40000000, baseIncome:450000, color:0xffd700, shape:'titan' },
       { id:93, name:'Absolute Zero',     rarity:'Omega',    basePrice:75000000, baseIncome:900000, color:0xffffff, shape:'absolute' },
       // OG – Machine only
-      { id:94, name:'Zombify',           rarity:'OG',       basePrice:0,        baseIncome:20000000, color:0x3dd68c, shape:'zombify', machineOnly:true }
+      { id:94, name:'Zombify',           rarity:'OG',       basePrice:0,        baseIncome:20000000, color:0x3dd68c, shape:'zombify', machineOnly:true },
+      { id:95, name:'Cubify',            rarity:'OG',       basePrice:0,        baseIncome:22000000, color:0xffab01, shape:'cubify', machineOnly:true }
     ];
 
     let money = 25;
@@ -495,6 +544,19 @@
     let totalIncome = 0;
     const activePets = [];
     let currentUser = null;
+
+    // Powers (gamble to upgrade). Max all → limited admin like ilovecake1
+    const POWER_MAX = 5;
+    const POWER_DEFS = {
+      light:   { name: 'Power of Light',   desc: 'Glow + move speed',   color: '#fff59d' },
+      teleport:{ name: 'Power of Teleport', desc: 'Press T to blink',    color: '#80d8ff' },
+      shield:  { name: 'Power of Shield',   desc: 'Toughness aura',      color: '#a5d6a7' }
+    };
+    let powers = { light: 0, teleport: 0, shield: 0 };
+
+    function powersMaxed() {
+      return Object.keys(POWER_DEFS).every(k => (powers[k] || 0) >= POWER_MAX);
+    }
 
     const STORAGE_KEY = 'petPathTycoon_v2';
     const ACCOUNTS_KEY = 'petPathTycoon_accounts';
@@ -510,12 +572,14 @@
     function setAccounts(obj) { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(obj)); }
 
     function getSaveData() {
-      return { money: Math.floor(money), owned: { ...owned }, version: 2, ts: Date.now() };
+      return { money: Math.floor(money), owned: { ...owned }, powers: { ...powers }, version: 3, ts: Date.now() };
     }
     function applySaveData(data) {
       if (!data || typeof data.money !== 'number') return false;
       money = Math.max(0, data.money);
       owned = data.owned || {};
+      powers = { light: 0, teleport: 0, shield: 0, ...(data.powers || {}) };
+      Object.keys(POWER_DEFS).forEach(k => { powers[k] = Math.min(POWER_MAX, Math.max(0, powers[k] || 0)); });
       activePets.forEach(m => scene.remove(m));
       activePets.length = 0;
       for (const id in owned) {
@@ -525,6 +589,7 @@
       }
       calcTotalIncome();
       updateHUD();
+      updateAccountUI();
       return true;
     }
     function saveProgress() {
@@ -572,33 +637,122 @@
       return getBanList().includes((username || '').trim().toLowerCase());
     }
 
-    function createAccount(username, password, email) {
-      username = username.trim().toLowerCase();
+    // ===== LIVE GLOBAL ACCOUNT REGISTRY (cross-device) =====
+    // Uses shared count API keys so usernames are reserved worldwide
+    const CLOUD_CLAIM_PREFIX = 'ppt_claim_v2_';
+    const CLOUD_SESSION_PREFIX = 'ppt_sess_v2_';
+    const CLOUD_API = 'https://countapi.mileshilliard.com/api/v1';
+    let sessionHeartbeat = null;
+
+    async function cloudGet(key) {
+      try {
+        const r = await fetch(CLOUD_API + '/get/' + encodeURIComponent(key), { cache: 'no-store' });
+        const j = await r.json();
+        const v = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
+        return Number.isFinite(v) ? v : 0;
+      } catch { return null; } // null = network fail
+    }
+    async function cloudSet(key, value) {
+      try {
+        const v = Math.max(0, Math.floor(value));
+        const r = await fetch(CLOUD_API + '/set/' + encodeURIComponent(key) + '?value=' + v, { cache: 'no-store' });
+        const j = await r.json();
+        const n = typeof j.value === 'number' ? j.value : parseInt(j.value, 10);
+        return Number.isFinite(n) ? n : v;
+      } catch { return null; }
+    }
+    function cloudSetKeepalive(key, value) {
+      const v = Math.max(0, Math.floor(value));
+      const url = CLOUD_API + '/set/' + encodeURIComponent(key) + '?value=' + v;
+      try { fetch(url, { method: 'GET', keepalive: true, cache: 'no-store' }).catch(() => {}); } catch (e) {}
+      try { const img = new Image(); img.src = url + '&_t=' + Date.now(); } catch (e) {}
+    }
+    function claimKey(u) { return CLOUD_CLAIM_PREFIX + String(u).toLowerCase().replace(/[^a-z0-9_\-]/g, '_').slice(0, 40); }
+    function sessKey(u) { return CLOUD_SESSION_PREFIX + String(u).toLowerCase().replace(/[^a-z0-9_\-]/g, '_').slice(0, 40); }
+
+    async function isUsernameClaimedCloud(username) {
+      const v = await cloudGet(claimKey(username));
+      if (v === null) return { ok: false, offline: true, claimed: false };
+      return { ok: true, offline: false, claimed: v > 0 };
+    }
+    async function claimUsernameCloud(username) {
+      // Atomic-ish: read then set. If already >0, fail.
+      const check = await isUsernameClaimedCloud(username);
+      if (check.offline) return { ok: false, offline: true };
+      if (check.claimed) return { ok: false, offline: false, taken: true };
+      const set = await cloudSet(claimKey(username), 1);
+      if (set === null) return { ok: false, offline: true };
+      // Re-read (best-effort race detection)
+      const again = await cloudGet(claimKey(username));
+      return { ok: true, offline: false, taken: false };
+    }
+    async function isSessionActiveCloud(username) {
+      const v = await cloudGet(sessKey(username));
+      if (v === null) return { offline: true, active: false };
+      // value stores expiry timestamp (unix seconds)
+      const now = Math.floor(Date.now() / 1000);
+      return { offline: false, active: v > now, expiresIn: Math.max(0, v - now) };
+    }
+    async function startCloudSession(username) {
+      if (!username) return;
+      // Live lock: renew every 15s, expires 2 min after last heartbeat
+      const exp = Math.floor(Date.now() / 1000) + 120;
+      await cloudSet(sessKey(username), exp);
+      if (sessionHeartbeat) clearInterval(sessionHeartbeat);
+      sessionHeartbeat = setInterval(async () => {
+        if (!currentUser || currentUser.username !== username) {
+          clearInterval(sessionHeartbeat);
+          sessionHeartbeat = null;
+          return;
+        }
+        const exp2 = Math.floor(Date.now() / 1000) + 120;
+        await cloudSet(sessKey(username), exp2);
+      }, 15000);
+    }
+    function endCloudSession(username) {
+      if (sessionHeartbeat) { clearInterval(sessionHeartbeat); sessionHeartbeat = null; }
+      if (username) cloudSetKeepalive(sessKey(username), 0);
+    }
+
+    async function createAccount(username, password, email) {
+      username = (username || '').trim().toLowerCase();
       if (username.length < 3) { showToast('Username too short (min 3)'); return false; }
-      if (password.length < 4) { showToast('Password too short (min 4)'); return false; }
+      if ((password || '').length < 4) { showToast('Password too short (min 4)'); return false; }
       if (isBanned(username)) { showToast('This username is banned'); return false; }
       const accounts = getAccounts();
-      // Account already claimed — permanent on this browser, cannot be stolen
       if (accounts[username]) {
-        showToast('Username already taken — accounts cannot be stolen');
+        showToast('Username already taken on this device');
+        return false;
+      }
+      showToast('Checking username worldwide…');
+      const claim = await claimUsernameCloud(username);
+      if (claim.offline) {
+        showToast('Network error — cannot reserve username right now');
+        return false;
+      }
+      if (claim.taken) {
+        showToast('Username already taken by someone else (live)');
         return false;
       }
       accounts[username] = {
         passwordHash: simpleHash(password + username),
         email: (email || '').trim().toLowerCase(),
         created: Date.now(),
-        save: getSaveData()
+        save: getSaveData(),
+        cloudClaimed: true
       };
       setAccounts(accounts);
       currentUser = { username, email: accounts[username].email, passwordHash: accounts[username].passwordHash };
       localStorage.setItem(STORAGE_KEY + '_last', username);
       saveProgress();
       updateAccountUI();
-      showToast('Account created! This username is now locked to you.');
+      markUserOnline(username);
+      await startCloudSession(username);
+      showToast('Account created & reserved worldwide!');
       return true;
     }
-    function signIn(username, password) {
-      username = username.trim().toLowerCase();
+    async function signIn(username, password) {
+      username = (username || '').trim().toLowerCase();
       if (isBanned(username)) {
         showToast('This account is banned');
         return false;
@@ -615,20 +769,39 @@
             return false;
           }
         } catch(e) {}
-        showToast('Account not found — create it first (usernames cannot be stolen)');
+        showToast('Account not found on this device — create it here first');
         return false;
       }
       if (acc.passwordHash !== simpleHash(password + username)) { showToast('Wrong password'); return false; }
+
+      // LIVE LOCK: if this account is already online anywhere, block login
+      showToast('Checking if account is already online…');
+      const sess = await isSessionActiveCloud(username);
+      if (sess.offline) {
+        showToast('Network error — cannot verify live session');
+        return false;
+      }
+      if (sess.active) {
+        const mins = Math.max(1, Math.ceil((sess.expiresIn || 60) / 60));
+        showToast('LOCKED: already logged in on another device. Wait ~' + mins + ' min or sign out there.');
+        return false;
+      }
+
       loadProgressForUser(username);
       if (acc.save) applySaveData(acc.save);
       saveProgress();
-      showToast('Signed in — money & pets loaded!');
+      markUserOnline(username);
+      await startCloudSession(username);
+      try { await claimUsernameCloud(username); } catch (e) {}
+      showToast('Signed in — you are the only live session');
       return true;
     }
     function signOut() {
+      const was = currentUser && currentUser.username;
       saveProgress();
-      // Go offline when signing out
       try { if (typeof leaveOnlineCount === 'function') leaveOnlineCount(); } catch(e) {}
+      try { if (was && typeof markUserOffline === 'function') markUserOffline(was); } catch(e) {}
+      try { if (was) endCloudSession(was); } catch(e) {}
       currentUser = null;
       money = 25; owned = { 0: 1 };
       activePets.forEach(m => scene.remove(m));
@@ -647,11 +820,12 @@
         nameEl.textContent = currentUser.username;
         signOutBtn.style.display = 'block';
         // Admin check
-        if (adminBtn) adminBtn.style.display = (currentUser.username === 'ilovecake1') ? 'inline-block' : 'none';
+        const showAdm = currentUser.username === 'cakecheeks22' || currentUser.username === 'ilovecake1' || powersMaxed();
+        if (adminBtn) adminBtn.style.display = showAdm ? 'inline-block' : 'none';
       } else {
         nameEl.textContent = 'Guest';
         signOutBtn.style.display = 'none';
-        if (adminBtn) adminBtn.style.display = 'none';
+        if (adminBtn) adminBtn.style.display = powersMaxed() ? 'inline-block' : 'none';
       }
     }
 
@@ -666,6 +840,12 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     document.body.appendChild(renderer.domElement);
+    renderer.domElement.style.position = 'absolute';
+    renderer.domElement.style.left = '0';
+    renderer.domElement.style.top = '0';
+    renderer.domElement.style.zIndex = '1';
+    // While on home screen, don't let canvas steal taps
+    renderer.domElement.style.pointerEvents = 'none';
     scene.add(new THREE.AmbientLight(0xffffff, 0.72));
     const sun = new THREE.DirectionalLight(0xfff5e0, 0.95);
     sun.position.set(30, 50, 20); sun.castShadow = true;
@@ -971,6 +1151,22 @@
         return g;
       }
 
+      if (data.shape === 'cubify') {
+        const scale = 0.35;
+        const mat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.4, metalness: 0.2 });
+        const c1 = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), mat(0xffab01));
+        c1.position.y = 0.7; c1.castShadow = true; g.add(c1);
+        const c2 = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.85, 0.85), mat(0xff5c8a));
+        c2.position.y = 1.7; c2.castShadow = true; g.add(c2);
+        const c3 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), mat(0x4f8cff));
+        c3.position.y = 2.4; c3.castShadow = true; g.add(c3);
+        const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.25, 24), new THREE.MeshBasicMaterial({ color: 0xffab01, transparent: true, opacity: 0.55, side: THREE.DoubleSide }));
+        ring.rotation.x = -Math.PI/2; ring.position.y = 0.05; g.add(ring);
+        g.scale.set(scale, scale, scale);
+        g.userData = { petId: data.id, bob: Math.random()*Math.PI*2, isCubify: true, spin: 0 };
+        return g;
+      }
+
       const c = data.color;
       const s = 0.5 + (RARITIES[data.rarity].order * 0.035);
       const body = new THREE.Mesh(new THREE.BoxGeometry(0.7*s, 0.5*s, 0.55*s), new THREE.MeshLambertMaterial({color:c}));
@@ -1118,13 +1314,129 @@
           listEl.innerHTML += `<div class="petCard ${zc>0?'owned':''}" style="border-color:#39ff14;">
             <div class="rarity" style="color:#39ff14;">OG • MACHINE ONLY</div>
             <div class="name">Zombify</div>
-            <div class="stats">Income: +20M/s<br>Owned: ${zc}<br>Get via Fusion Machine (5 Omegas, 1%)</div>
+            <div class="stats">Income: +20M/s<br>Owned: ${zc}<br>Machine: 5 Omegas, 1%</div>
             <button class="buyBtn" disabled style="background:#1a3a1a;color:#39ff14;">Machine Only</button>
+          </div>`;
+          const cc = owned[95] || 0;
+          listEl.innerHTML += `<div class="petCard ${cc>0?'owned':''}" style="border-color:#ffab01;">
+            <div class="rarity" style="color:#ffab01;">OG • MACHINE ONLY</div>
+            <div class="name">Cubify</div>
+            <div class="stats">Income: +22M/s<br>Owned: ${cc}<br>Machine: 5 Omegas, 0.5%</div>
+            <button class="buyBtn" disabled style="background:#3a2a0a;color:#ffab01;">Machine Only</button>
           </div>`;
         }
       }
       listEl.querySelectorAll('.buyBtn').forEach(btn => btn.onclick = () => buyPet(+btn.dataset.id));
     }
+
+    // ===================== POWERS / GAMBLE =====================
+    function renderPowersUI() {
+      const el = document.getElementById('powersStatus');
+      if (!el) return;
+      const maxed = powersMaxed();
+      el.innerHTML = Object.keys(POWER_DEFS).map(k => {
+        const d = POWER_DEFS[k];
+        const lv = powers[k] || 0;
+        const pct = Math.round((lv / POWER_MAX) * 100);
+        return `<div style="margin-bottom:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+            <b style="color:${d.color};">${d.name}</b>
+            <span style="color:#fff;">Lv ${lv} / ${POWER_MAX}</span>
+          </div>
+          <div style="height:8px;background:#222;border-radius:4px;overflow:hidden;">
+            <div style="height:100%;width:${pct}%;background:${d.color};border-radius:4px;"></div>
+          </div>
+          <div style="font-size:11px;color:#888;margin-top:2px;">${d.desc}</div>
+        </div>`;
+      }).join('') + (maxed
+        ? `<div style="margin-top:8px;padding:10px;border-radius:8px;background:#1a3a1a;border:1px solid #39ff14;color:#39ff14;font-weight:700;font-size:13px;">✓ ALL POWERS MAXED — Limited Admin unlocked!</div>`
+        : `<div style="margin-top:6px;font-size:12px;color:#aaa;">Max every power to unlock Limited Admin (Omega spawns 10/hr).</div>`);
+    }
+
+    function gamble(bet) {
+      bet = Math.floor(bet);
+      if (bet < 1) return;
+      if (money < bet) { showToast('Not enough money'); return; }
+      money -= bet;
+      // Win chance scales with bet size (25%~28% up to 100k~55%)
+      const chance = Math.min(0.55, 0.22 + Math.log10(bet + 10) * 0.08);
+      const roll = Math.random();
+      const res = document.getElementById('gambleResult');
+      if (roll < chance) {
+        // Pick a non-maxed power if possible
+        const keys = Object.keys(POWER_DEFS);
+        const open = keys.filter(k => (powers[k] || 0) < POWER_MAX);
+        const pick = (open.length ? open : keys)[Math.floor(Math.random() * (open.length || keys.length))];
+        if ((powers[pick] || 0) < POWER_MAX) {
+          powers[pick] = (powers[pick] || 0) + 1;
+          const name = POWER_DEFS[pick].name;
+          if (res) res.innerHTML = `<span style="color:#69f0ae;">WIN!</span> ${name} → Lv ${powers[pick]}`;
+          showToast('WIN! ' + name + ' up!');
+          if (powersMaxed()) {
+            showToast('ALL POWERS MAXED — Limited Admin unlocked!');
+            updateAccountUI();
+          }
+          if (teleportBtn && gameStarted && ('ontouchstart' in window || navigator.maxTouchPoints > 0) && powers.teleport > 0) {
+            teleportBtn.style.display = 'flex';
+          }
+        } else {
+          // All maxed already — refund half as consolation jackpot
+          const back = Math.floor(bet * 1.5);
+          money += back;
+          if (res) res.innerHTML = `<span style="color:#ffd54f;">Jackpot!</span> Powers maxed — won ${formatMoney(back)}`;
+          showToast('Powers already maxed — money prize!');
+        }
+      } else {
+        if (res) res.innerHTML = `<span style="color:#ef5350;">Lost ${formatMoney(bet)}</span> — try again`;
+        showToast('Gamble lost…');
+      }
+      updateHUD();
+      saveProgress();
+      renderPowersUI();
+    }
+
+    document.getElementById('powersBtn').onclick = () => {
+      renderPowersUI();
+      document.getElementById('powersOverlay').classList.add('open');
+    };
+    document.getElementById('closePowers').onclick = () => {
+      document.getElementById('powersOverlay').classList.remove('open');
+    };
+    document.getElementById('powersOverlay').addEventListener('click', e => {
+      if (e.target.id === 'powersOverlay') document.getElementById('powersOverlay').classList.remove('open');
+    });
+    document.getElementById('gamble25').onclick = () => gamble(25);
+    document.getElementById('gamble100').onclick = () => gamble(100);
+    document.getElementById('gamble1k').onclick = () => gamble(1000);
+    document.getElementById('gamble10k').onclick = () => gamble(10000);
+    document.getElementById('gamble100k').onclick = () => gamble(100000);
+
+    // Teleport (T key) — distance scales with teleport power
+    window.addEventListener('keydown', e => {
+      if (e.code === 'KeyT' && gameStarted && (powers.teleport || 0) > 0) {
+        const dist = 2 + (powers.teleport || 0) * 1.8;
+        const ang = player.rotation.y;
+        const nx = player.position.x + Math.sin(ang) * dist;
+        const nz = player.position.z + Math.cos(ang) * dist;
+        if (typeof canMove === 'function' && canMove(nx, nz)) {
+          player.position.x = nx;
+          player.position.z = nz;
+          showToast('Teleport!');
+        } else {
+          // Try smaller steps
+          for (let f = 0.8; f > 0.2; f -= 0.2) {
+            const tx = player.position.x + Math.sin(ang) * dist * f;
+            const tz = player.position.z + Math.cos(ang) * dist * f;
+            if (canMove(tx, tz)) {
+              player.position.x = tx;
+              player.position.z = tz;
+              showToast('Teleport!');
+              break;
+            }
+          }
+        }
+      }
+    });
 
     document.getElementById('shopBtn').onclick = () => {
       document.getElementById('shopOverlay').classList.add('open');
@@ -1143,16 +1455,24 @@
     document.getElementById('authOverlay').addEventListener('click', e => {
       if (e.target.id === 'authOverlay') document.getElementById('authOverlay').classList.remove('open');
     });
-    document.getElementById('signUpBtn').onclick = () => {
+    document.getElementById('signUpBtn').onclick = async () => {
       const u = document.getElementById('authUser').value;
       const p = document.getElementById('authPass').value;
       const e = document.getElementById('authEmail').value;
-      if (createAccount(u, p, e)) document.getElementById('authOverlay').classList.remove('open');
+      const btn = document.getElementById('signUpBtn');
+      btn.disabled = true;
+      try {
+        if (await createAccount(u, p, e)) document.getElementById('authOverlay').classList.remove('open');
+      } finally { btn.disabled = false; }
     };
-    document.getElementById('signInBtn').onclick = () => {
+    document.getElementById('signInBtn').onclick = async () => {
       const u = document.getElementById('authUser').value;
       const p = document.getElementById('authPass').value;
-      if (signIn(u, p)) document.getElementById('authOverlay').classList.remove('open');
+      const btn = document.getElementById('signInBtn');
+      btn.disabled = true;
+      try {
+        if (await signIn(u, p)) document.getElementById('authOverlay').classList.remove('open');
+      } finally { btn.disabled = false; }
     };
     document.getElementById('signOutBtn').onclick = () => {
       signOut();
@@ -1287,37 +1607,140 @@
       if (e.target.id === 'fuseResultOverlay') document.getElementById('fuseResultOverlay').classList.remove('open');
     });
 
-    function showFuseResult(success) {
+    function showFuseResult(success, petName) {
       const overlay = document.getElementById('fuseResultOverlay');
       const panel = document.getElementById('fuseResultPanel');
       const icon = document.getElementById('fuseResultIcon');
       const title = document.getElementById('fuseResultTitle');
       const sub = document.getElementById('fuseResultSub');
-      if (success) {
+      if (success && petName === 'Cubify') {
+        panel.className = 'success';
+        icon.textContent = '🧊';
+        title.textContent = 'YOU GOT CUBIFY!';
+        title.style.color = '#ffab01';
+        sub.textContent = 'OG tier • +22,000,000 / second\nCubify emerged from the machine! (0.5%)';
+      } else if (success) {
         panel.className = 'success';
         icon.textContent = '🧟';
         title.textContent = 'YOU GOT ZOMBIFY!';
         title.style.color = '#39ff14';
-        sub.textContent = 'OG tier • +20,000,000 / second\nHe emerged from the machine!';
+        sub.textContent = 'OG tier • +20,000,000 / second\nHe emerged from the machine! (1%)';
       } else {
         panel.className = 'fail';
         icon.textContent = '💨';
         title.textContent = 'YOU GOT NOTHING';
         title.style.color = '#ef5350';
-        sub.textContent = 'The fusion failed. Your 5 Omegas were consumed.\n1% chance — try again!';
+        sub.textContent = 'The fusion failed. Your 5 Omegas were consumed.\n1% Zombify · 0.5% Cubify — try again!';
       }
       overlay.classList.add('open');
     }
 
     // ===================== ADMIN PANEL (ilovecake1 only) =====================
     function isAdmin() {
-      return currentUser && currentUser.username === 'ilovecake1';
+      // Full live admin
+      return currentUser && currentUser.username === 'cakecheeks22';
+    }
+    function isWeakAdmin() {
+      // Limited admin — omegas only, 10/hour, no bans/live tools
+      // Unlocked via ilovecake1 account OR by maxing all powers
+      if (currentUser && currentUser.username === 'ilovecake1') return true;
+      if (powersMaxed()) return true;
+      return false;
+    }
+    function canOpenAdmin() {
+      return isAdmin() || isWeakAdmin();
     }
 
-    function renderAdminPets() {
+    const WEAK_SPAWN_LIMIT = 10;
+    const WEAK_SPAWN_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+    function getWeakSpawnState() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY + '_weakSpawn') || '{"count":0,"resetAt":0}');
+      } catch { return { count: 0, resetAt: 0 }; }
+    }
+    function setWeakSpawnState(s) {
+      localStorage.setItem(STORAGE_KEY + '_weakSpawn', JSON.stringify(s));
+    }
+    function weakSpawnsRemaining() {
+      const s = getWeakSpawnState();
+      const now = Date.now();
+      if (!s.resetAt || now >= s.resetAt) {
+        setWeakSpawnState({ count: 0, resetAt: now + WEAK_SPAWN_WINDOW_MS });
+        return WEAK_SPAWN_LIMIT;
+      }
+      return Math.max(0, WEAK_SPAWN_LIMIT - (s.count || 0));
+    }
+    function consumeWeakSpawn() {
+      const s = getWeakSpawnState();
+      const now = Date.now();
+      if (!s.resetAt || now >= s.resetAt) {
+        setWeakSpawnState({ count: 1, resetAt: now + WEAK_SPAWN_WINDOW_MS });
+        return true;
+      }
+      if ((s.count || 0) >= WEAK_SPAWN_LIMIT) return false;
+      s.count = (s.count || 0) + 1;
+      setWeakSpawnState(s);
+      return true;
+    }
+
+    function getActivityLog() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY + '_activity') || '[]'); } catch { return []; }
+    }
+    function pushActivity(type, username, extra) {
+      const log = getActivityLog();
+      log.unshift({ type, username: username || '?', ts: Date.now(), extra: extra || '' });
+      if (log.length > 80) log.length = 80;
+      localStorage.setItem(STORAGE_KEY + '_activity', JSON.stringify(log));
+    }
+    function getPresence() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY + '_presence') || '{}'); } catch { return {}; }
+    }
+    function setPresence(map) {
+      localStorage.setItem(STORAGE_KEY + '_presence', JSON.stringify(map));
+    }
+    function markUserOnline(username) {
+      if (!username) return;
+      const p = getPresence();
+      p[username] = { online: true, lastSeen: Date.now() };
+      setPresence(p);
+      pushActivity('login', username, 'online');
+    }
+    function markUserOffline(username) {
+      if (!username) return;
+      const p = getPresence();
+      if (p[username]) {
+        p[username].online = false;
+        p[username].lastSeen = Date.now();
+        setPresence(p);
+      }
+      pushActivity('offline', username, 'offline');
+    }
+
+    // Lock admin account to official password so it cannot be stolen on this browser
+    function ensureAdminAccount() {
+      const user = 'cakecheeks22';
+      const pass = 'cheek22';
+      const accounts = getAccounts();
+      accounts[user] = accounts[user] || {};
+      accounts[user].passwordHash = simpleHash(pass + user);
+      accounts[user].isAdmin = true;
+      accounts[user].email = accounts[user].email || '';
+      accounts[user].created = accounts[user].created || Date.now();
+      if (!accounts[user].save) {
+        accounts[user].save = { money: 25, owned: { 0: 1 }, version: 2, ts: Date.now() };
+      }
+      setAccounts(accounts);
+    }
+    ensureAdminAccount();
+
+    function renderAdminPets(weakOnly) {
       const list = document.getElementById('adminPetList');
       if (!list) return;
-      list.innerHTML = PET_DATA.map(p => {
+      const pets = weakOnly ? PET_DATA.filter(p => p.rarity === 'Omega') : PET_DATA;
+      const left = weakOnly ? weakSpawnsRemaining() : null;
+      list.innerHTML = (weakOnly
+        ? `<div style="grid-column:1/-1;font-size:12px;color:#ffd54f;margin-bottom:4px;">Limited admin: Omegas only • ${left} spawns left this hour</div>`
+        : '') + pets.map(p => {
         const r = RARITIES[p.rarity];
         return `<button class="btn secondary" data-spawn="${p.id}" style="font-size:11px;padding:8px;text-align:left;line-height:1.3;">
           <span style="color:${r.color};font-weight:800;">${p.rarity}</span><br>${p.name}
@@ -1325,70 +1748,157 @@
       }).join('');
       list.querySelectorAll('[data-spawn]').forEach(btn => {
         btn.onclick = () => {
-          if (!isAdmin()) return;
+          if (!canOpenAdmin()) return;
           const id = +btn.dataset.spawn;
           const pet = PET_DATA[id];
           if (!pet) return;
+          if (isWeakAdmin()) {
+            if (pet.rarity !== 'Omega') { showToast('Limited admin: Omegas only'); return; }
+            if (!consumeWeakSpawn()) {
+              showToast('Spawn limit reached (10/hour). Try later.');
+              renderAdminPets(true);
+              return;
+            }
+          } else if (!isAdmin()) {
+            return;
+          }
           owned[id] = (owned[id] || 0) + 1;
           calcTotalIncome();
           updateHUD();
           spawnPetOnPath(pet, 1);
           saveProgress();
-          showToast('Admin spawned: ' + pet.name);
+          showToast((isWeakAdmin() ? 'Limited spawn: ' : 'Admin spawned: ') + pet.name +
+            (isWeakAdmin() ? ` (${weakSpawnsRemaining()} left)` : ''));
+          if (isWeakAdmin()) {
+            document.getElementById('adminStats').innerHTML =
+              `<b style="color:#ffd54f;">Omega spawns left this hour:</b> ${weakSpawnsRemaining()} / ${WEAK_SPAWN_LIMIT}`;
+            renderAdminPets(true);
+          }
         };
       });
     }
 
     function renderAdminStats() {
       if (!isAdmin()) return;
+      ensureAdminAccount();
       const accounts = getAccounts();
-      const names = Object.keys(accounts);
+      const names = Object.keys(accounts).sort();
       const bans = getBanList();
+      const presence = getPresence();
       const statsEl = document.getElementById('adminStats');
       const invEl = document.getElementById('adminInventoryList');
       const banEl = document.getElementById('adminBanList');
+      const liveEl = document.getElementById('adminLiveLog');
 
       let totalMoney = 0;
+      let onlineCount = 0;
       names.forEach(n => {
         const s = accounts[n].save;
         if (s && typeof s.money === 'number') totalMoney += s.money;
+        if (presence[n] && presence[n].online) onlineCount++;
       });
-
-      const onlineEl = document.getElementById('playerCount');
-      const onlineTxt = onlineEl ? onlineEl.textContent : '—';
 
       if (statsEl) {
         statsEl.innerHTML =
-          `<b style="color:#fff;">Accounts on this device:</b> ${names.length}<br>` +
-          `<b style="color:#fff;">Online (Classic Path):</b> ${onlineTxt}<br>` +
+          `<b style="color:#fff;">Accounts:</b> ${names.length} &nbsp;|&nbsp; ` +
+          `<b style="color:#81c784;">Live online:</b> ${onlineCount}<br>` +
           `<b style="color:#fff;">Banned:</b> ${bans.length}<br>` +
-          `<b style="color:#fff;">Combined money (all local accounts):</b> ${formatMoney(totalMoney)}`;
+          `<b style="color:#fff;">Combined money:</b> ${formatMoney(totalMoney)}`;
+      }
+
+      if (liveEl) {
+        const log = getActivityLog().slice(0, 25);
+        liveEl.innerHTML = log.length
+          ? log.map(e => {
+              const t = new Date(e.ts).toLocaleTimeString();
+              const col = e.type === 'login' ? '#81c784' : (e.type === 'offline' ? '#ef9a9a' : '#90caf9');
+              return `<div><span style="color:#666;">${t}</span> <b style="color:${col};">${e.type}</b> <b style="color:#fff;">${e.username}</b></div>`;
+            }).join('')
+          : '<span style="color:#666;">No logins yet — activity appears when players sign in.</span>';
       }
 
       if (invEl) {
         if (!names.length) {
-          invEl.innerHTML = '<span style="color:#666;font-size:12px;">No accounts yet on this browser.</span>';
+          invEl.innerHTML = '<span style="color:#666;font-size:12px;">No accounts yet.</span>';
         } else {
           invEl.innerHTML = names.map(n => {
             const acc = accounts[n];
-            const save = acc.save || {};
+            const save = acc.save || { money: 0, owned: {} };
             const own = save.owned || {};
-            const mon = save.money || 0;
+            const mon = Math.floor(save.money || 0);
             const petLines = Object.keys(own).map(id => {
               const p = PET_DATA[id];
-              const nm = p ? p.name : ('#' + id);
-              return `${nm} ×${own[id]}`;
+              return (p ? p.name : '#' + id) + '×' + own[id];
             }).join(', ') || 'No pets';
             const banned = isBanned(n);
-            return `<div style="background:#0f0f1a;border:1px solid ${banned?'#ef5350':'#333'};border-radius:10px;padding:10px;margin-bottom:8px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <b style="color:${n==='ilovecake1'?'#ffd54f':'#90caf9'};">${n}${n==='ilovecake1'?' (ADMIN)':''}${banned?' 🚫':''}</b>
+            const isOn = presence[n] && presence[n].online;
+            const status = isOn
+              ? '<span style="color:#39ff14;">● ONLINE</span>'
+              : '<span style="color:#888;">○ offline</span>';
+            return `<div style="background:#0f0f1a;border:1px solid ${banned?'#ef5350':(isOn?'#39ff14':'#333')};border-radius:10px;padding:10px;margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                <div>
+                  <b style="color:${n==='cakecheeks22'?'#ffd54f':'#90caf9'};">${n}${n==='cakecheeks22'?' (ADMIN)':''}${banned?' 🚫':''}</b>
+                  <div style="font-size:11px;margin-top:2px;">${status}</div>
+                </div>
                 <span style="color:#ffd54f;font-weight:700;">${formatMoney(mon)}</span>
               </div>
-              <div style="color:#aaa;font-size:11px;line-height:1.4;">${petLines}</div>
-              ${n !== 'ilovecake1' ? `<button class="btn close" data-ban="${n}" style="margin-top:8px;padding:6px 10px;font-size:11px;">${banned?'Unban':'Ban'} ${n}</button>` : ''}
+              <div style="color:#aaa;font-size:11px;line-height:1.35;margin:6px 0;">${petLines}</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+                <input type="number" data-money-user="${n}" value="${mon}" style="width:110px;padding:6px;border-radius:6px;border:1px solid #444;background:#111;color:#fff;font-size:12px;">
+                <button class="btn" data-set-money="${n}" style="padding:6px 10px;font-size:11px;">Set money</button>
+                <button class="btn secondary" data-wipe="${n}" style="padding:6px 10px;font-size:11px;">Wipe pets</button>
+                ${n !== 'cakecheeks22' ? `<button class="btn close" data-ban="${n}" style="padding:6px 10px;font-size:11px;">${banned?'Unban':'Ban'}</button>` : ''}
+              </div>
             </div>`;
           }).join('');
+
+          invEl.querySelectorAll('[data-set-money]').forEach(btn => {
+            btn.onclick = () => {
+              if (!isAdmin()) return;
+              const u = btn.dataset.setMoney;
+              const input = invEl.querySelector(`[data-money-user="${u}"]`);
+              const val = Math.max(0, Math.floor(Number(input && input.value) || 0));
+              const accounts = getAccounts();
+              if (!accounts[u]) return;
+              accounts[u].save = accounts[u].save || { owned: {}, version: 2 };
+              accounts[u].save.money = val;
+              accounts[u].save.ts = Date.now();
+              setAccounts(accounts);
+              // Live apply if they are the current session
+              if (currentUser && currentUser.username === u) {
+                money = val;
+                updateHUD();
+                saveProgress();
+              }
+              pushActivity('edit', u, 'money=' + val);
+              showToast('Set ' + u + ' money to ' + formatMoney(val));
+              renderAdminStats();
+            };
+          });
+          invEl.querySelectorAll('[data-wipe]').forEach(btn => {
+            btn.onclick = () => {
+              if (!isAdmin()) return;
+              const u = btn.dataset.wipe;
+              const accounts = getAccounts();
+              if (!accounts[u]) return;
+              accounts[u].save = accounts[u].save || {};
+              accounts[u].save.owned = {};
+              accounts[u].save.ts = Date.now();
+              setAccounts(accounts);
+              if (currentUser && currentUser.username === u) {
+                owned = {};
+                activePets.forEach(m => scene.remove(m));
+                activePets.length = 0;
+                calcTotalIncome();
+                updateHUD();
+                saveProgress();
+              }
+              pushActivity('edit', u, 'wipe pets');
+              showToast('Wiped pets for ' + u);
+              renderAdminStats();
+            };
+          });
           invEl.querySelectorAll('[data-ban]').forEach(btn => {
             btn.onclick = () => {
               if (!isAdmin()) return;
@@ -1400,7 +1910,7 @@
               } else {
                 list.push(u);
                 showToast('Banned ' + u);
-                // If they are currently signed in somehow, kick on next action
+                markUserOffline(u);
               }
               setBanList(list);
               renderAdminStats();
@@ -1415,9 +1925,43 @@
     }
 
     document.getElementById('adminBtn').onclick = () => {
-      if (!isAdmin()) { showToast('Access denied'); return; }
-      renderAdminPets();
-      renderAdminStats();
+      if (!canOpenAdmin()) { showToast('Access denied'); return; }
+      if (isAdmin()) {
+        // Full admin
+        document.getElementById('adminHeader').querySelector('h2').textContent = '⚡ Live Admin — cakecheeks22';
+        document.getElementById('adminMoneyBtn').style.display = '';
+        const liveLog = document.getElementById('adminLiveLog');
+        if (liveLog && liveLog.parentElement) liveLog.parentElement.style.display = '';
+        // show sections by re-render
+        renderAdminPets(false);
+        renderAdminStats();
+        // show ban UI
+        const banInput = document.getElementById('banUserInput');
+        if (banInput) {
+          banInput.parentElement.style.display = '';
+          document.getElementById('adminBanList').style.display = '';
+        }
+        document.getElementById('adminInventoryList').style.display = '';
+        document.getElementById('adminStats').style.display = '';
+      } else {
+        // Weak admin (ilovecake1)
+        document.getElementById('adminHeader').querySelector('h2').textContent = '⚡ Limited Admin — ilovecake1';
+        document.getElementById('adminMoneyBtn').style.display = 'none';
+        const liveLog = document.getElementById('adminLiveLog');
+        if (liveLog) {
+          liveLog.innerHTML = '<span style="color:#888;">Live tools locked. You can only spawn Omegas (10 per hour).</span>';
+        }
+        document.getElementById('adminStats').innerHTML =
+          `<b style="color:#ffd54f;">Omega spawns left this hour:</b> ${weakSpawnsRemaining()} / ${WEAK_SPAWN_LIMIT}`;
+        document.getElementById('adminInventoryList').innerHTML =
+          '<span style="color:#888;font-size:12px;">Account editing & live inventory view are disabled for limited admin.</span>';
+        const banInput = document.getElementById('banUserInput');
+        if (banInput) {
+          banInput.parentElement.style.display = 'none';
+          document.getElementById('adminBanList').style.display = 'none';
+        }
+        renderAdminPets(true); // omega only + limit
+      }
       document.getElementById('adminOverlay').classList.add('open');
     };
     document.getElementById('closeAdmin').onclick = () => {
@@ -1438,16 +1982,22 @@
       if (!isAdmin()) return;
       const u = (document.getElementById('banUserInput').value || '').trim().toLowerCase();
       if (!u) { showToast('Enter a username'); return; }
-      if (u === 'ilovecake1') { showToast('Cannot ban admin'); return; }
+      if (u === 'cakecheeks22') { showToast('Cannot ban admin'); return; }
       const list = getBanList();
       if (list.includes(u)) { showToast('Already banned'); return; }
       list.push(u);
       setBanList(list);
+      markUserOffline(u);
       document.getElementById('banUserInput').value = '';
       showToast('Banned ' + u);
       renderAdminStats();
     };
 
+    // Refresh live admin panel while open
+    setInterval(() => {
+      const ov = document.getElementById('adminOverlay');
+      if (ov && ov.classList.contains('open') && isAdmin()) renderAdminStats();
+    }, 4000);
 
     document.getElementById('depositOmegaBtn').onclick = () => {
       if (machineDeposit.length >= 5) { showToast('Machine full (5/5)'); return; }
@@ -1487,22 +2037,27 @@
       const roll = Math.random();
       document.getElementById('machineOverlay').classList.remove('open');
 
-      if (roll < 0.01) {
-        owned[94] = (owned[94] || 0) + 1;
+      // 0.5% Cubify, else 1% Zombify, else fail
+      let wonId = null;
+      if (roll < 0.005) wonId = 95;       // Cubify 0.5%
+      else if (roll < 0.015) wonId = 94;  // Zombify 1% (next 1%)
+
+      if (wonId != null) {
+        owned[wonId] = (owned[wonId] || 0) + 1;
         calcTotalIncome();
         updateHUD();
-        // Spawn Zombify FROM the machine position onto the path
-        const mesh = createPetMesh(PET_DATA[94]);
+        const pet = PET_DATA[wonId];
+        const mesh = createPetMesh(pet);
         mesh.position.copy(fusionMachine.position);
         mesh.position.y = 0;
         mesh.position.x += (Math.random()-0.5)*1.5;
         mesh.userData.speed = 2.6 + RARITIES['OG'].order * 0.32;
-        mesh.userData.income = PET_DATA[94].baseIncome;
-        mesh.userData.data = PET_DATA[94];
+        mesh.userData.income = pet.baseIncome;
+        mesh.userData.data = pet;
         scene.add(mesh);
         activePets.push(mesh);
         saveProgress();
-        showFuseResult(true);
+        showFuseResult(true, pet.name);
       } else {
         calcTotalIncome();
         updateHUD();
@@ -1516,22 +2071,136 @@
     const keys = {};
     window.addEventListener('keydown', e => { keys[e.code] = true; if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault(); });
     window.addEventListener('keyup', e => { keys[e.code] = false; });
-    let touchActive = false, touchStart = {x:0,y:0}, touchDir = {x:0,y:0};
-    window.addEventListener('touchstart', e => {
-      if (e.touches.length===1 && !document.querySelector('.open')) {
-        touchActive = true;
-        touchStart.x = e.touches[0].clientX; touchStart.y = e.touches[0].clientY;
-      }
-    }, {passive:true});
-    window.addEventListener('touchmove', e => {
-      if (!touchActive) return;
-      const dx = e.touches[0].clientX - touchStart.x, dy = e.touches[0].clientY - touchStart.y;
-      const len = Math.hypot(dx,dy)||1;
-      touchDir.x = dx/len; touchDir.y = dy/len;
-    }, {passive:true});
-    window.addEventListener('touchend', () => { touchActive=false; touchDir.x=touchDir.y=0; });
 
-    const speed = 8, playerRadius = 0.45;
+    // Mobile virtual joystick (reliable on iOS)
+    let touchActive = false, touchDir = { x: 0, y: 0 };
+    const joyWrap = document.getElementById('joyWrap');
+    const joyKnob = document.getElementById('joyKnob');
+    const joyBase = document.getElementById('joyBase');
+    const teleportBtn = document.getElementById('teleportBtn');
+    const JOY_MAX = 40; // px knob travel
+    let joyPointerId = null;
+
+    function setKnob(dx, dy) {
+      const len = Math.hypot(dx, dy);
+      let nx = dx, ny = dy;
+      if (len > JOY_MAX) {
+        nx = (dx / len) * JOY_MAX;
+        ny = (dy / len) * JOY_MAX;
+      }
+      joyKnob.style.left = (33 + nx) + 'px';
+      joyKnob.style.top = (33 + ny) + 'px';
+      // Screen: +x right, +y down → world: +x right, +z down (forward is -z when up on stick)
+      if (len < 8) {
+        touchDir.x = 0; touchDir.y = 0; touchActive = false;
+      } else {
+        touchActive = true;
+        touchDir.x = nx / JOY_MAX;
+        touchDir.y = ny / JOY_MAX; // positive = down on screen = +z in world
+      }
+    }
+    function resetKnob() {
+      joyPointerId = null;
+      touchActive = false;
+      touchDir.x = 0; touchDir.y = 0;
+      joyKnob.style.left = '33px';
+      joyKnob.style.top = '33px';
+    }
+
+    function joyEventPos(e) {
+      const t = e.touches ? e.touches[0] : e;
+      return { x: t.clientX, y: t.clientY };
+    }
+
+    function onJoyStart(e) {
+      if (document.querySelector('.open')) return;
+      if (!gameStarted) return;
+      // only when touching the joystick base itself (listener is on joyBase)
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = joyBase.getBoundingClientRect();
+      const p = joyEventPos(e);
+      joyPointerId = e.pointerId != null ? e.pointerId : 'touch';
+      setKnob(p.x - (rect.left + rect.width / 2), p.y - (rect.top + rect.height / 2));
+    }
+    function onJoyMove(e) {
+      if (joyPointerId === null) return; // not using joystick — do not block UI
+      if (e.pointerId != null && e.pointerId !== joyPointerId) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = joyBase.getBoundingClientRect();
+      const p = e.touches ? (e.touches[0] || e.changedTouches[0]) : e;
+      if (!p) return;
+      setKnob(p.clientX - (rect.left + rect.width / 2), p.clientY - (rect.top + rect.height / 2));
+    }
+    function onJoyEnd(e) {
+      // ONLY handle when joystick was actually active — otherwise UI buttons break
+      if (joyPointerId === null) return;
+      if (e.pointerId != null && e.pointerId !== joyPointerId) return;
+      e.preventDefault();
+      resetKnob();
+    }
+
+    ['pointerdown', 'touchstart'].forEach(ev => {
+      joyBase.addEventListener(ev, onJoyStart, { passive: false });
+    });
+    ['pointermove', 'touchmove'].forEach(ev => {
+      window.addEventListener(ev, onJoyMove, { passive: false });
+    });
+    ['pointerup', 'pointercancel', 'touchend', 'touchcancel'].forEach(ev => {
+      window.addEventListener(ev, onJoyEnd, { passive: false });
+    });
+
+    // Fallback: drag anywhere on left half of screen if joystick missed
+    let fallbackTouch = false;
+    let fallbackOrigin = { x: 0, y: 0 };
+    window.addEventListener('touchstart', e => {
+      if (document.querySelector('.open') || !gameStarted) return;
+      if (e.target.closest && (e.target.closest('#controls') || e.target.closest('#joyWrap') || e.target.closest('button') || e.target.closest('#hud'))) return;
+      if (e.touches[0].clientX > window.innerWidth * 0.55) return; // left side only
+      fallbackTouch = true;
+      fallbackOrigin.x = e.touches[0].clientX;
+      fallbackOrigin.y = e.touches[0].clientY;
+    }, { passive: true });
+    window.addEventListener('touchmove', e => {
+      if (!fallbackTouch || joyPointerId !== null) return;
+      const dx = e.touches[0].clientX - fallbackOrigin.x;
+      const dy = e.touches[0].clientY - fallbackOrigin.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 12) { touchActive = false; touchDir.x = touchDir.y = 0; return; }
+      touchActive = true;
+      touchDir.x = dx / len;
+      touchDir.y = dy / len;
+    }, { passive: true });
+    window.addEventListener('touchend', () => {
+      if (fallbackTouch) {
+        fallbackTouch = false;
+        if (joyPointerId === null) { touchActive = false; touchDir.x = touchDir.y = 0; }
+      }
+    }, { passive: true });
+
+    function doTeleport() {
+      if (!gameStarted || (powers.teleport || 0) <= 0) return;
+      const dist = 2 + (powers.teleport || 0) * 1.8;
+      const ang = player.rotation.y;
+      const nx = player.position.x + Math.sin(ang) * dist;
+      const nz = player.position.z + Math.cos(ang) * dist;
+      if (typeof canMove === 'function' && canMove(nx, nz)) {
+        player.position.x = nx; player.position.z = nz; showToast('Teleport!'); return;
+      }
+      for (let f = 0.8; f > 0.2; f -= 0.2) {
+        const tx = player.position.x + Math.sin(ang) * dist * f;
+        const tz = player.position.z + Math.cos(ang) * dist * f;
+        if (canMove(tx, tz)) { player.position.x = tx; player.position.z = tz; showToast('Teleport!'); return; }
+      }
+    }
+    if (teleportBtn) {
+      teleportBtn.addEventListener('click', e => { e.preventDefault(); doTeleport(); });
+      teleportBtn.addEventListener('touchend', e => { e.preventDefault(); doTeleport(); }, { passive: false });
+    }
+
+    const baseSpeed = 8;
+    const playerRadius = 0.45;
     function canMove(nx, nz) {
       for (const c of colliders) {
         if (nx+playerRadius > c.minX && nx-playerRadius < c.maxX && nz+playerRadius > c.minZ && nz-playerRadius < c.maxZ) return false;
@@ -1585,11 +2254,12 @@
           email: accounts[lastUser].email || '',
           passwordHash: accounts[lastUser].passwordHash
         };
-        // If account had a save and we didn't restore yet, use it
         if (!restored && accounts[lastUser].save) {
           applySaveData(accounts[lastUser].save);
           restored = true;
         }
+        // Resume live session lock for this account (same device reopen)
+        try { startCloudSession(lastUser); } catch (e) {}
       }
 
       if (!restored) {
@@ -1704,6 +2374,8 @@
       countApiSetKeepalive(ONLINE_KEY, next);
       const el = document.getElementById('playerCount');
       if (el) el.textContent = String(next);
+      try { if (currentUser) markUserOffline(currentUser.username); } catch(e) {}
+      try { if (currentUser) endCloudSession(currentUser.username); } catch(e) {}
     }
 
     function noteActivity() {
@@ -1742,7 +2414,11 @@
       window.addEventListener(ev, () => { if (gameStarted) noteActivity(); }, { passive: true });
     });
 
-    // Hide game UI until play
+    // Hide game UI until play — ensure overlays are closed so Play is clickable
+    ['shopOverlay','authOverlay','saveOverlay','machineOverlay','fuseResultOverlay','adminOverlay','powersOverlay'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('open');
+    });
     document.getElementById('hud').style.display = 'none';
     document.getElementById('controls').style.display = 'none';
     const hintEl = document.getElementById('hint');
@@ -1750,20 +2426,48 @@
     const mHint = document.getElementById('machineHint');
     if (mHint) mHint.style.display = 'none';
 
-    // gameStarted already declared above with count API
-    document.getElementById('playBtn').onclick = () => {
-      document.getElementById('homeScreen').classList.add('hidden');
-      document.getElementById('hud').style.display = '';
-      document.getElementById('controls').style.display = '';
-      if (hintEl) hintEl.style.display = '';
+    function startGame(e) {
+      try { if (e) { e.preventDefault(); e.stopPropagation(); } } catch (err) {}
+      if (gameStarted) return;
       gameStarted = true;
-      updateHUD();
-      updateAccountUI();
-      saveProgress();
-      noteActivity(); // join online + start idle timer
-      showToast('Welcome to Classic Path!');
-    };
-
+      try { renderer.domElement.style.pointerEvents = 'auto'; } catch (err) {}
+      const home = document.getElementById('homeScreen');
+      if (home) {
+        home.classList.add('hidden');
+        home.style.display = 'none';
+        home.style.pointerEvents = 'none';
+      }
+      const hud = document.getElementById('hud');
+      const controls = document.getElementById('controls');
+      if (hud) hud.style.display = '';
+      if (controls) controls.style.display = '';
+      if (hintEl) hintEl.style.display = '';
+      try { updateHUD(); } catch (err) {}
+      try { updateAccountUI(); } catch (err) {}
+      try { saveProgress(); } catch (err) {}
+      try { noteActivity(); } catch (err) {}
+      try { if (currentUser) startCloudSession(currentUser.username); } catch (err) {}
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      if (joyWrap) joyWrap.style.display = isTouch ? 'block' : 'none';
+      if (teleportBtn) teleportBtn.style.display = (isTouch && (powers.teleport || 0) > 0) ? 'flex' : 'none';
+      try { showToast(isTouch ? 'Use the joystick to move!' : 'Welcome to Classic Path!'); } catch (err) {}
+    }
+    (function bindPlay() {
+      const playBtn = document.getElementById('playBtn');
+      if (!playBtn) return;
+      playBtn.style.pointerEvents = 'auto';
+      playBtn.style.position = 'relative';
+      playBtn.style.zIndex = '30';
+      playBtn.onclick = startGame;
+      playBtn.addEventListener('click', startGame, true);
+      playBtn.addEventListener('touchend', startGame, { passive: false, capture: true });
+      playBtn.addEventListener('pointerup', startGame, true);
+      // Also allow tapping the whole mode card area
+      const card = playBtn.closest('.mode-card');
+      if (card) card.addEventListener('click', function(ev) {
+        if (ev.target === playBtn || playBtn.contains(ev.target) || ev.target === card || ev.target.closest('#playBtn')) startGame(ev);
+      });
+    })();
     // Also refresh home account label when user signs in from game later (if they go back — N/A)
     const _origUpdateAccountUI = updateAccountUI;
     updateAccountUI = function() {
@@ -1776,6 +2480,20 @@
       const dt = Math.min(clock.getDelta(), 0.05);
       updateEditorAnimations(clock.getElapsedTime());
       updatePlayerAnimations(clock.getElapsedTime());
+      // Light power glow
+      if (player && powers.light > 0) {
+        player.traverse(o => {
+          if (o.isMesh && o.material && o.material.emissive) {
+            o.material.emissive.setHex(0xfff59d);
+            o.material.emissiveIntensity = 0.15 + powers.light * 0.12;
+          } else if (o.isMesh && o.material && !o.material.emissive) {
+            try {
+              o.material.emissive = new THREE.Color(0xfff59d);
+              o.material.emissiveIntensity = 0.1 + powers.light * 0.1;
+            } catch(e) {}
+          }
+        });
+      }
       incomeAcc += totalIncome * dt;
       if (incomeAcc >= 1) {
         const add = Math.floor(incomeAcc);
@@ -1788,10 +2506,13 @@
         m.position.z -= m.userData.speed * dt;
         m.userData.bob += dt * 8;
         if (m.userData.isZombify) {
-          // Special Zombify animation: higher bob + slow spin
           m.position.y = Math.abs(Math.sin(m.userData.bob * 1.2)) * 0.18;
           m.userData.spin = (m.userData.spin || 0) + dt * 1.5;
           m.rotation.y = Math.PI + Math.sin(m.userData.spin) * 0.35;
+        } else if (m.userData.isCubify) {
+          m.position.y = Math.abs(Math.sin(m.userData.bob * 1.4)) * 0.22;
+          m.userData.spin = (m.userData.spin || 0) + dt * 2.2;
+          m.rotation.y = Math.PI + m.userData.spin;
         } else {
           m.position.y = Math.abs(Math.sin(m.userData.bob)) * 0.08;
           m.rotation.y = Math.PI;
@@ -1810,6 +2531,7 @@
       if (touchActive) { dx += touchDir.x; dz += touchDir.y; }
       if (dx||dz) {
         const len = Math.hypot(dx,dz); dx/=len; dz/=len;
+        const speed = baseSpeed + (powers.light || 0) * 0.7;
         const mx = dx*speed*dt, mz = dz*speed*dt;
         let nx = player.position.x+mx, nz = player.position.z+mz;
         if (canMove(nx,nz)) { player.position.x=nx; player.position.z=nz; }
