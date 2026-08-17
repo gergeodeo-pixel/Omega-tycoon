@@ -5452,13 +5452,25 @@
       const amHost = d.host === me;
       // push my state
       const posKey = amHost ? 'hostPos' : 'guestPos';
-      const hpKey = amHost ? 'hostHp' : 'guestHp';
+      const myHpKey = amHost ? 'hostHp' : 'guestHp';
+      const eHpKey = amHost ? 'guestHp' : 'hostHp';
       d[posKey] = { x: player.position.x, z: player.position.z, yaw: duelCamYaw };
-      d[hpKey] = duelMyHp;
-      // read enemy
+      // Trust Firebase for MY hp (opponent's attacks write here)
+      if (typeof d[myHpKey] === 'number') {
+        if (d[myHpKey] < duelMyHp - 0.5) {
+          // took a hit
+          duelMyHp = d[myHpKey];
+        } else if (d[myHpKey] > duelMyHp + 0.5) {
+          // heal already written or soft desync — keep lower of local heal push
+          d[myHpKey] = duelMyHp;
+        } else {
+          d[myHpKey] = duelMyHp;
+        }
+      } else {
+        d[myHpKey] = duelMyHp;
+      }
       const ePos = amHost ? d.guestPos : d.hostPos;
-      const eHp = amHost ? d.guestHp : d.hostHp;
-      if (typeof eHp === 'number') duelEnemyHp = eHp;
+      if (typeof d[eHpKey] === 'number') duelEnemyHp = d[eHpKey];
       if (ePos && duelEnemyMesh) {
         // smooth enemy
         duelEnemyMesh.position.x += (ePos.x - duelEnemyMesh.position.x) * 0.25;
@@ -5550,30 +5562,52 @@
       duelId = null;
     }
 
-    function duelAttack() {
+    async function duelAttack() {
       if (!duelActive || Date.now() < duelFrozenUntil) return;
       if (Date.now() - duelLastAttack < DUEL_ATTACK_CD) return;
-      if (!duelEnemyMesh) return;
-      const hitR = (duelEnemyMesh.userData.hitRadius || 2.2) + 1.2;
+      if (!duelEnemyMesh || !duelId) return;
+      const hitR = (duelEnemyMesh.userData.hitRadius || 2.2) + 1.5;
       const dx = player.position.x - duelEnemyMesh.position.x;
       const dz = player.position.z - duelEnemyMesh.position.z;
       const dist = Math.hypot(dx, dz);
       if (dist > Math.max(DUEL_ATTACK_RANGE, hitR)) { showToast('Too far'); return; }
       duelLastAttack = Date.now();
-      // swing sword visual
       if (duelSwordMesh) {
         duelSwordMesh.rotation.z = -0.8;
         setTimeout(() => { if (duelSwordMesh) duelSwordMesh.rotation.z = 0; }, 180);
       }
-      duelEnemyHp = Math.max(0, duelEnemyHp - DUEL_ATTACK_DMG);
+      // Apply damage on Firebase so the OTHER player actually loses HP
+      try {
+        const d = await fbGet('duels/' + duelId);
+        if (!d) return;
+        const me = activeIdentity();
+        const amHost = d.host === me;
+        const targetKey = amHost ? 'guestHp' : 'hostHp';
+        const cur = typeof d[targetKey] === 'number' ? d[targetKey] : 100;
+        d[targetKey] = Math.max(0, cur - DUEL_ATTACK_DMG);
+        duelEnemyHp = d[targetKey];
+        document.getElementById('duelEnemyHp').textContent = Math.ceil(duelEnemyHp);
+        await fbPut('duels/' + duelId, d);
+        showToast('Hit! -' + DUEL_ATTACK_DMG);
+      } catch (e) {
+        duelEnemyHp = Math.max(0, duelEnemyHp - DUEL_ATTACK_DMG);
+      }
     }
-    function duelHeal() {
+    async function duelHeal() {
       if (!duelActive || Date.now() < duelFrozenUntil) return;
       if (duelHealsLeft <= 0) { showToast('No heals left'); return; }
       duelHealsLeft--;
       duelMyHp = Math.min(100, duelMyHp + 28);
       showToast('Healed (' + duelHealsLeft + ' left)');
       document.getElementById('duelMyHp').textContent = Math.ceil(duelMyHp);
+      try {
+        const d = await fbGet('duels/' + duelId);
+        if (!d) return;
+        const me = activeIdentity();
+        const amHost = d.host === me;
+        d[amHost ? 'hostHp' : 'guestHp'] = duelMyHp;
+        await fbPut('duels/' + duelId, d);
+      } catch (e) {}
     }
 
     // Look controls for duel FPS
@@ -5855,22 +5889,22 @@
             cdEl.style.display = 'none';
           }
         }
-        let ix = 0, iz = 0;
+        let ix = 0, iz = 0; // iz = forward along camera look
         if (!frozen) {
-          if (keys['KeyW'] || keys['ArrowUp']) iz -= 1;
-          if (keys['KeyS'] || keys['ArrowDown']) iz += 1;
+          if (keys['KeyW'] || keys['ArrowUp']) iz += 1;
+          if (keys['KeyS'] || keys['ArrowDown']) iz -= 1;
           if (keys['KeyA'] || keys['ArrowLeft']) ix -= 1;
           if (keys['KeyD'] || keys['ArrowRight']) ix += 1;
           if (typeof touchDir !== 'undefined' && touchDir && (touchDir.x || touchDir.y)) {
             ix += touchDir.x;
-            iz += touchDir.y;
+            iz += -touchDir.y; // stick up = forward
           }
         }
         const len = Math.hypot(ix, iz);
         if (len > 0) { ix /= len; iz /= len; }
-        // wish dir relative to yaw
-        const wishX = ix * Math.cos(duelCamYaw) + iz * Math.sin(duelCamYaw);
-        const wishZ = -ix * Math.sin(duelCamYaw) + iz * Math.cos(duelCamYaw);
+        // Camera looks along (sin(yaw), cos(yaw))
+        const wishX = Math.cos(duelCamYaw) * ix + Math.sin(duelCamYaw) * iz;
+        const wishZ = -Math.sin(duelCamYaw) * ix + Math.cos(duelCamYaw) * iz;
         const targetVx = wishX * DUEL_SPEED;
         const targetVz = wishZ * DUEL_SPEED;
         const rate = (len > 0 ? DUEL_ACCEL : DUEL_FRICTION) * dt;
