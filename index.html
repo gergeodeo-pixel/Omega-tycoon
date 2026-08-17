@@ -950,6 +950,21 @@
       }
     }
     setInterval(() => { try { pollGifts(); } catch (e) {} }, 2000);
+    let lastAdminEditTs = 0;
+    setInterval(async () => {
+      try {
+        const id = activeIdentity();
+        if (!id) return;
+        const ed = await fbGet('admin_edits/' + safeId(id));
+        if (!ed || typeof ed.money !== 'number') return;
+        if (!ed.ts || ed.ts <= lastAdminEditTs) return;
+        lastAdminEditTs = ed.ts;
+        money = Math.max(0, Math.floor(ed.money));
+        updateHUD();
+        saveProgress();
+        showToast('Admin set your money to ' + formatMoney(money));
+      } catch (e) {}
+    }, 2000);
     setInterval(() => { try { refreshLiveBans(); refreshLiveRanks(); } catch (e) {} }, 4000);
     setInterval(async () => {
       try {
@@ -4584,7 +4599,7 @@
       renderAdminBanList();
       renderAdminModList();
       renderAdminPetSpawnList();
-      // online list in stats
+      await renderAdminAccounts();
       const stats = document.getElementById('adminStats');
       if (stats) {
         const presence = await fbGet('presence');
@@ -4598,6 +4613,64 @@
         }
         stats.innerHTML = '<b>Online (' + online.length + '):</b><br>' + (online.join(', ') || '—');
       }
+    }
+
+    async function renderAdminAccounts() {
+      const list = document.getElementById('adminInventoryList');
+      if (!list) return;
+      list.innerHTML = '<div style="color:#888;font-size:12px;">Loading accounts…</div>';
+      const [presence, saves] = await Promise.all([fbGet('presence'), fbGet('saves')]);
+      const now = Date.now();
+      const rows = [];
+      const ids = new Set([
+        ...Object.keys(presence || {}),
+        ...Object.keys(saves || {})
+      ]);
+      ids.forEach(u => {
+        const p = (presence && presence[u]) || {};
+        const s = (saves && saves[u]) || {};
+        const online = p.lastSeen && (now - p.lastSeen < 90000);
+        const moneyVal = typeof s.money === 'number' ? s.money : 0;
+        const owned = s.owned || {};
+        const petCount = Object.values(owned).reduce((a, b) => a + (b || 0), 0);
+        rows.push({ u, online, moneyVal, petCount, owned, save: s });
+      });
+      rows.sort((a, b) => (b.online - a.online) || String(a.u).localeCompare(String(b.u)));
+      if (!rows.length) {
+        list.innerHTML = '<div style="color:#666;">No accounts found in Firebase yet. Players must play once so saves upload.</div>';
+        return;
+      }
+      list.innerHTML = rows.map(r => {
+        const petPreview = Object.keys(r.owned || {}).slice(0, 8).map(id => {
+          const pet = PET_DATA[id];
+          return (pet ? pet.name : id) + 'x' + r.owned[id];
+        }).join(', ') || '—';
+        return '<div style="background:#12121f;border:1px solid #333;border-radius:10px;padding:10px;margin-bottom:8px;">' +
+          '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px;">' +
+          '<b style="color:#fff;font-size:13px;">' + r.u + '</b>' +
+          '<span style="font-size:11px;font-weight:800;color:' + (r.online ? '#66bb6a' : '#888') + ';">' + (r.online ? 'ONLINE' : 'offline') + '</span></div>' +
+          '<div style="font-size:11px;color:#aaa;margin-bottom:6px;">Pets: ' + r.petCount + ' · ' + petPreview + '</div>' +
+          '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' +
+          '<input type="number" data-money-user="' + r.u + '" value="' + Math.floor(r.moneyVal) + '" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid #444;background:#0a0a14;color:#ffd54f;font-weight:700;">' +
+          '<button type="button" class="btn" data-set-money="' + r.u + '" style="padding:8px 12px;background:#43a047;">Set $</button>' +
+          '</div></div>';
+      }).join('');
+      list.querySelectorAll('[data-set-money]').forEach(btn => {
+        btn.onclick = async () => {
+          if (!isFullAdmin()) { showToast('Full admin only'); return; }
+          const u = btn.getAttribute('data-set-money');
+          const input = list.querySelector('[data-money-user="' + u + '"]');
+          const val = Math.max(0, Math.floor(Number(input && input.value) || 0));
+          let save = await fbGet('saves/' + safeId(u));
+          if (!save || typeof save !== 'object') save = { money: val, owned: {}, version: 6, ts: Date.now() };
+          save.money = val;
+          save.ts = Date.now();
+          save.adminEdit = true;
+          await fbPut('saves/' + safeId(u), save);
+          await fbPut('admin_edits/' + safeId(u), { money: val, ts: Date.now(), by: activeIdentity() });
+          showToast('Set ' + u + ' money to ' + formatMoney(val));
+        };
+      });
     }
     document.getElementById('adminBtn')?.addEventListener('click', () => openAdminPanel());
     document.getElementById('closeAdmin')?.addEventListener('click', () => document.getElementById('adminOverlay').classList.remove('open'));
