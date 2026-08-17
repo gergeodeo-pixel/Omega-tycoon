@@ -411,6 +411,17 @@
         <div id="adminInventoryList" style="max-height:280px;overflow-y:auto;margin-bottom:12px;"></div>
 
         <div id="fullAdminOnlyTools">
+        <div style="font-size:13px;font-weight:700;color:#90caf9;margin-bottom:6px;">🌀 Trillionaire Portal (admin only)</div>
+        <div style="background:#12121f;border:1px solid #4f8cff;border-radius:10px;padding:10px;margin-bottom:14px;">
+          <div style="font-size:11px;color:#aaa;margin-bottom:8px;">Walk-in reward: <b style="color:#ffd54f;">$2T</b> + <b style="color:#4f8cff;">2 Absolute Zero</b></div>
+          <button type="button" class="btn" id="portalPrivateBtn" style="width:100%;margin-bottom:6px;background:linear-gradient(180deg,#5c6bc0,#3949ab);">Spawn Private (this device)</button>
+          <button type="button" class="btn" id="portalGlobalBtn" style="width:100%;margin-bottom:6px;background:linear-gradient(180deg,#42a5f5,#1565c0);">Spawn Global (all servers live)</button>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;">
+            <input type="number" id="portalServerCount" min="1" max="50" value="3" style="width:70px;padding:8px;border-radius:8px;border:1px solid #444;background:#0a0a14;color:#fff;">
+            <button type="button" class="btn" id="portalRandomBtn" style="flex:1;background:linear-gradient(180deg,#7e57c2,#5e35b1);">Random public servers</button>
+          </div>
+          <button type="button" class="btn secondary" id="portalClearBtn" style="width:100%;">Clear all portals</button>
+        </div>
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">🎁 Gift pet to player (live)</div>
         <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
           <input type="text" id="giftUserInput" placeholder="username / guest_id" style="flex:1;min-width:120px;padding:10px;border-radius:8px;border:1px solid #333;background:#0f0f1a;color:#fff;font-size:13px;">
@@ -1892,6 +1903,22 @@
         return g;
       }
 
+      if (data.shape === 'abszero') {
+        const scale = 0.5;
+        const body = new THREE.Mesh(
+          new THREE.SphereGeometry(0.55, 16, 12),
+          new THREE.MeshStandardMaterial({ color: 0x4f8cff, emissive: 0x1565c0, emissiveIntensity: 0.4, roughness: 0.25, metalness: 0.3 })
+        );
+        body.position.y = 0.55; body.castShadow = true; g.add(body);
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(0.7, 0.06, 8, 24),
+          new THREE.MeshStandardMaterial({ color: 0xb3e5fc, emissive: 0x4fc3f7, emissiveIntensity: 0.5 })
+        );
+        ring.rotation.x = Math.PI / 2; ring.position.y = 0.55; g.add(ring);
+        g.scale.set(scale, scale, scale);
+        g.userData = { petId: data.id, bob: Math.random()*Math.PI*2, isAbsZero: true, spin: 0 };
+        return g;
+      }
       if (data.shape === 'blazeorb') {
         const scale = 0.55;
         const map = getBlazeOrbMap();
@@ -2034,6 +2061,200 @@
       mesh.userData.bob = Math.random()*Math.PI*2;
     }
 
+
+
+    // ===== TRILLIONAIRE PORTAL (cakecheeks22 only spawns) =====
+    let localPortal = null;
+    let portalClaimed = false;
+    let portalAnimT = 0;
+    let portalPillars = [];
+
+    function buildPortalMesh() {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color: 0x4f8cff, roughness: 0.35, metalness: 0.15, emissive: 0x1a3a8a, emissiveIntensity: 0.35 });
+      const left = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat);
+      left.position.set(0.42, 0.6, 0);
+      left.scale.set(0.19, 1, 0.17);
+      left.castShadow = true;
+      g.add(left);
+      const right = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat.clone());
+      right.position.set(1.57, 0.6, 0);
+      right.scale.set(0.19, 1, 0.17);
+      right.castShadow = true;
+      g.add(right);
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat.clone());
+      beam.position.set(1.0, 0.6, -0.01);
+      beam.scale.set(0.09, 1, 0.022);
+      g.add(beam);
+      // glowing center plane
+      const core = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.9, 1.6),
+        new THREE.MeshBasicMaterial({ color: 0x82b1ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+      );
+      core.position.set(1.0, 0.85, 0);
+      g.add(core);
+      // label
+      try {
+        const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0,0,512,96);
+        ctx.fillStyle = '#90caf9'; ctx.font = 'bold 36px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('TRILLIONAIRE PORTAL', 256, 58);
+        const tex = new THREE.CanvasTexture(c);
+        const label = new THREE.Mesh(
+          new THREE.PlaneGeometry(3.2, 0.6),
+          new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide })
+        );
+        label.position.set(1.0, 2.1, 0);
+        g.add(label);
+      } catch (e) {}
+      g.userData = { left, right, beam, core, animT: Math.random() * 10 };
+      return g;
+    }
+
+    function spawnPortalAt(x, z, opts) {
+      if (localPortal) {
+        scene.remove(localPortal);
+        localPortal = null;
+      }
+      localPortal = buildPortalMesh();
+      localPortal.position.set(x, 0, z);
+      localPortal.userData.global = !!(opts && opts.global);
+      localPortal.userData.private = !!(opts && opts.private);
+      scene.add(localPortal);
+      portalClaimed = false;
+      showToast('Trillionaire Portal spawned');
+    }
+
+    async function adminSpawnPortalPrivate() {
+      if (!isFullAdmin()) { showToast('Admin only'); return; }
+      const x = player.position.x + Math.sin(camYaw || 0) * 4;
+      const z = player.position.z + Math.cos(camYaw || 0) * 4;
+      spawnPortalAt(x, z, { private: true });
+    }
+
+    async function adminSpawnPortalGlobal() {
+      if (!isFullAdmin()) { showToast('Admin only'); return; }
+      const payload = {
+        active: true,
+        mode: 'global',
+        x: 0,
+        z: -8,
+        by: activeIdentity(),
+        ts: Date.now(),
+        rewardMoney: 2e12,
+        rewardPetId: 104,
+        rewardPetCount: 2
+      };
+      await fbPut('portals/global', payload);
+      spawnPortalAt(payload.x, payload.z, { global: true });
+      showToast('Global portal live on all servers');
+    }
+
+    async function adminSpawnPortalRandomServers() {
+      if (!isFullAdmin()) { showToast('Admin only'); return; }
+      const n = Math.max(1, Math.min(50, parseInt(document.getElementById('portalServerCount')?.value || '3', 10)));
+      const servers = await fbGet('servers') || {};
+      const ids = Object.keys(servers);
+      // shuffle
+      for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+      }
+      const pick = ids.slice(0, Math.min(n, ids.length));
+      // if not enough server ids, still write random slots
+      while (pick.length < n) pick.push('slot_' + Math.floor(Math.random() * 10000));
+      const payload = {
+        active: true,
+        mode: 'random',
+        serverIds: pick,
+        x: (Math.random() - 0.5) * 12,
+        z: -6 + (Math.random() - 0.5) * 8,
+        by: activeIdentity(),
+        ts: Date.now(),
+        rewardMoney: 2e12,
+        rewardPetId: 104,
+        rewardPetCount: 2
+      };
+      await fbPut('portals/random', payload);
+      // if our server matches, spawn locally
+      if (!currentServerId || pick.includes(currentServerId) || pick.some(s => String(s).startsWith('slot_'))) {
+        spawnPortalAt(payload.x, payload.z, { global: true });
+      }
+      showToast('Portal set on ' + n + ' public server slot(s)');
+    }
+
+    async function adminClearPortals() {
+      if (!isFullAdmin()) return;
+      await fbPut('portals/global', null);
+      await fbPut('portals/random', null);
+      if (localPortal) { scene.remove(localPortal); localPortal = null; }
+      showToast('Portals cleared');
+    }
+
+    async function pullPortals() {
+      if (!gameStarted || doorRealmActive || duelActive) return;
+      try {
+        const g = await fbGet('portals/global');
+        if (g && g.active) {
+          if (!localPortal) spawnPortalAt(g.x || 0, g.z || -8, { global: true });
+          return;
+        }
+        const r = await fbGet('portals/random');
+        if (r && r.active && Array.isArray(r.serverIds)) {
+          const sid = currentServerId;
+          if (sid && r.serverIds.includes(sid)) {
+            if (!localPortal) spawnPortalAt(r.x || 0, r.z || -6, { global: true });
+          }
+        }
+      } catch (e) {}
+    }
+    setInterval(() => { try { pullPortals(); } catch (e) {} }, 4000);
+
+    function claimPortalReward() {
+      if (!localPortal || portalClaimed) return;
+      portalClaimed = true;
+      money += 2e12;
+      owned[104] = (owned[104] || 0) + 2;
+      const pet = PET_DATA.find(p => p.id === 104);
+      if (pet) spawnPetOnPath(pet, 2);
+      calcTotalIncome();
+      updateHUD();
+      saveProgress();
+      showToast('Trillionaire Portal! +$2T + 2 Absolute Zero');
+      // soft despawn local after claim optional
+      if (localPortal) {
+        localPortal.scale.multiplyScalar(0.01);
+        setTimeout(() => {
+          if (localPortal) { scene.remove(localPortal); localPortal = null; }
+        }, 600);
+      }
+    }
+
+    function updatePortal(dt) {
+      if (!localPortal) return;
+      const ud = localPortal.userData;
+      ud.animT = (ud.animT || 0) + dt;
+      const t = ud.animT % 10;
+      // simple grow pillars
+      if (ud.left) {
+        const h = 1 + (t > 2 && t < 5 ? (t - 2) / 3 * 1.2 : 0);
+        ud.left.scale.y = h;
+        ud.right.scale.y = h;
+        ud.left.position.y = 0.6 * h;
+        ud.right.position.y = 0.6 * h;
+      }
+      if (ud.core) {
+        ud.core.material.opacity = 0.35 + Math.sin(ud.animT * 3) * 0.15;
+        ud.core.rotation.y += dt * 0.5;
+      }
+      // walk-through claim
+      if (!portalClaimed && player) {
+        const dx = player.position.x - (localPortal.position.x + 1.0);
+        const dz = player.position.z - localPortal.position.z;
+        if (Math.hypot(dx, dz) < 1.6) claimPortalReward();
+      }
+    }
 
     // ===== MYSTERIOUS DOOR (map) → DOOR REALM horror hallway =====
     const DOOR_WORLD_Z = 10000;
@@ -5068,7 +5289,11 @@
     document.getElementById('adminOverlay')?.addEventListener('click', e => {
       if (e.target.id === 'adminOverlay') document.getElementById('adminOverlay').classList.remove('open');
     });
-    document.getElementById('adminMoneyBtn')?.addEventListener('click', () => {
+    document.getElementById('portalPrivateBtn')?.addEventListener('click', () => adminSpawnPortalPrivate());
+    document.getElementById('portalGlobalBtn')?.addEventListener('click', () => adminSpawnPortalGlobal());
+    document.getElementById('portalRandomBtn')?.addEventListener('click', () => adminSpawnPortalRandomServers());
+    document.getElementById('portalClearBtn')?.addEventListener('click', () => adminClearPortals());
+    document.getElementById('adminMoneyBtn')?.addEventListener('click' , () => {
       if (!isFullAdmin() && !isModAdmin()) return;
       if (!isFullAdmin()) { showToast('Full admin only'); return; }
       money += 120000000000;
@@ -5949,6 +6174,7 @@
       try { updateRain(dt); } catch(e) {}
       try { tickRemotePets(dt); } catch(e) {}
       try { updateDoorRealm(dt); } catch(e) {}
+      try { updatePortal(dt); } catch(e) {}
       renderer.render(scene, camera);
     }
     animate();
