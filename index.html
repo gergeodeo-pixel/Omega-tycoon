@@ -109,6 +109,7 @@
     }
     #shopOverlay.open, #authOverlay.open, #saveOverlay.open, #machineOverlay.open, #fuseResultOverlay.open, #powersOverlay.open { display: flex; }
     #adminOverlay.open { display: flex; }
+    #banScreen.show { display: flex !important; }
     #shopPanel, #authPanel, #savePanel, #machinePanel, #adminPanel, #powersPanel {
       background: #1a1a2e; width: min(920px, 96vw); max-height: 88vh;
       border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
@@ -216,6 +217,11 @@
     <div class="home-account" id="homeAccount">Not signed in</div>
     <div class="home-hint">Public = shared world • Solo = private server just for you</div>
     <div id="copyFooterHome" style="margin-top:28px;text-align:center;color:rgba(255,255,255,0.55);font-weight:900;font-size:12px;letter-spacing:0.5px;">©️2026</div>
+  </div>
+  <div id="banScreen" style="display:none;position:fixed;inset:0;z-index:99999;background:#000;align-items:center;justify-content:center;flex-direction:column;pointer-events:auto;">
+    <div style="color:#ff1744;font-weight:900;font-size:clamp(48px,18vw,120px);letter-spacing:0.08em;text-transform:uppercase;text-shadow:0 0 40px rgba(255,23,68,0.6);">BAN</div>
+    <div style="color:#ff5252;font-weight:800;font-size:16px;margin-top:12px;text-align:center;padding:0 20px;">You are banned from Pet Path Tycoon</div>
+    <div id="banScreenUser" style="color:#888;font-size:13px;margin-top:8px;"></div>
   </div>
   <div id="copyFooter" style="position:absolute;bottom:8px;left:0;right:0;text-align:center;z-index:90;pointer-events:none;color:rgba(255,255,255,0.5);font-weight:900;font-size:11px;letter-spacing:0.5px;">©️2026</div>
   <button type="button" id="lockBaseBtn" style="display:none;position:absolute;top:52px;right:10px;z-index:55;pointer-events:auto;padding:8px 10px;border-radius:12px;border:1px solid rgba(255,255,255,0.25);background:rgba(0,0,0,0.55);color:#fff;font-weight:800;font-size:12px;cursor:pointer;">🔓 Base</button>
@@ -841,6 +847,33 @@
     let liveBanCache = {};
     let liveRankCache = {};
     let claimedGifts = {};
+    
+    function showBanScreen(username) {
+      const el = document.getElementById('banScreen');
+      if (!el) return;
+      el.classList.add('show');
+      el.style.display = 'flex';
+      const u = document.getElementById('banScreenUser');
+      if (u) u.textContent = username ? ('Account: ' + username) : '';
+      // lock everything
+      try { gameStarted = false; } catch (e) {}
+      try { renderer.domElement.style.pointerEvents = 'none'; } catch (e) {}
+      const home = document.getElementById('homeScreen');
+      if (home) {
+        home.style.pointerEvents = 'none';
+      }
+      document.querySelectorAll('button, input, a').forEach(n => {
+        if (el.contains(n)) return;
+        try { n.disabled = true; n.style.pointerEvents = 'none'; } catch (e) {}
+      });
+    }
+    function hideBanScreen() {
+      const el = document.getElementById('banScreen');
+      if (!el) return;
+      el.classList.remove('show');
+      el.style.display = 'none';
+    }
+
     function isBanned(username) {
       const u = (username || '').trim().toLowerCase();
       if (!u) return false;
@@ -971,22 +1004,18 @@
         await refreshLiveBans();
         const id = activeIdentity();
         if (id && isBanned(id)) {
-          showToast('You are banned');
-          if (typeof gameStarted !== 'undefined' && gameStarted) {
-            gameStarted = false;
-            try { leaveOnlineCount(); } catch (e) {}
-            const home = document.getElementById('homeScreen');
-            if (home) { home.classList.remove('hidden'); home.style.display = 'flex'; home.style.pointerEvents = 'auto'; }
-            const hud = document.getElementById('hud');
-            if (hud) hud.style.display = 'none';
-            if (typeof joyWrap !== 'undefined' && joyWrap) joyWrap.style.display = 'none';
-            try { renderer.domElement.style.pointerEvents = 'none'; } catch (e) {}
-          }
+          showBanScreen(id);
+          try { leaveOnlineCount(); } catch (e) {}
+          try { leaveServer(); } catch (e) {}
+          try { endCloudSession(id); } catch (e) {}
           if (currentUser) { try { signOut(); } catch (e) {} }
         }
       } catch (e) {}
     }, 5000);
-    refreshLiveBans();
+    refreshLiveBans().then(() => {
+      const id = activeIdentity();
+      if (id && isBanned(id)) showBanScreen(id);
+    });
     refreshLiveRanks();
 
     function fbPutKeepalive(path, value) {
@@ -1110,7 +1139,7 @@
       username = (username || '').trim().toLowerCase();
       if (username.length < 3) { showToast('Username too short (min 3)'); return false; }
       if ((password || '').length < 4) { showToast('Password too short (min 4)'); return false; }
-      if (isBanned(username)) { showToast('This username is banned'); return false; }
+      if (isBanned(username)) { showBanScreen(username); showToast('BAN'); return false; }
       const accounts = getAccounts();
       if (accounts[username]) {
         showToast('Username already taken on this device');
@@ -4049,6 +4078,15 @@
     setInterval(refreshServerHint, 6000);
 
     async function startGame(e, mode) {
+      try {
+        await refreshLiveBans();
+        const id = activeIdentity();
+        if (id && isBanned(id)) {
+          showBanScreen(id);
+          return;
+        }
+      } catch (err) {}
+
       try { if (e) { e.preventDefault(); e.stopPropagation(); } } catch (err) {}
       if (gameStarted) return;
       serverMode = mode === 'solo' ? 'solo' : 'public';
