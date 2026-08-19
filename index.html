@@ -226,9 +226,29 @@
       <b style="color:#e2e8f0;font-size:14px;">🛠️ Map Studio</b>
       <span style="color:#64748b;font-size:11px;">cakecheeks22 only · radius load</span>
       <div style="flex:1"></div>
+      <button type="button" id="studioTogglePanel" style="padding:8px 12px;border:none;border-radius:8px;background:#64748b;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Hide Panel</button>
+      <button type="button" id="studioModelEditorBtn" style="padding:8px 12px;border:none;border-radius:8px;background:#a855f7;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Model Editor</button>
       <button type="button" id="studioPubPrivate" style="padding:8px 12px;border:none;border-radius:8px;background:#475569;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Publish Private</button>
       <button type="button" id="studioPubPublic" style="padding:8px 12px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Publish Public</button>
       <button type="button" id="studioExit" style="padding:8px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Exit</button>
+    </div>
+    <div id="studioModelEditor" style="display:none;position:absolute;right:12px;top:56px;width:min(360px,94vw);max-height:75vh;overflow:auto;background:rgba(15,23,42,0.97);border:1px solid #475569;border-radius:14px;padding:12px;z-index:5;pointer-events:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <b style="color:#e2e8f0;font-size:14px;">🧱 Model Editor</b>
+        <button type="button" id="studioModelClose" style="padding:6px 10px;border:none;border-radius:8px;background:#475569;color:#fff;cursor:pointer;">Close</button>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:6px;">Paste Three.js mesh code (from your editor). Import spawns it; Cancel discards.</div>
+      <textarea id="studioModelCode" placeholder="// paste model code here...
+const Box_1 = new THREE.Mesh(
+  new THREE.BoxGeometry(1,1,1),
+  new THREE.MeshStandardMaterial({ color: '#38bdf8' })
+);
+Box_1.position.set(0,1,0);
+scene.add(Box_1);" style="width:100%;height:220px;border-radius:8px;background:#0f172a;color:#86efac;border:1px solid #475569;padding:8px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button type="button" id="studioModelImport" style="flex:1;padding:12px;border:none;border-radius:8px;background:#22c55e;color:#fff;font-weight:900;cursor:pointer;">Import → Spawn</button>
+        <button type="button" id="studioModelCancel" style="flex:1;padding:12px;border:none;border-radius:8px;background:#64748b;color:#fff;font-weight:800;cursor:pointer;">Cancel</button>
+      </div>
     </div>
     <div id="studioGui" style="position:absolute;left:12px;bottom:12px;width:min(340px,94vw);max-height:70vh;overflow-y:auto;background:rgba(30,41,59,0.96);border-radius:16px;padding:12px;box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.5);z-index:2;border:1px solid #334155;pointer-events:auto;">
       <div style="color:#94a3b8;font-size:11px;font-weight:700;margin-bottom:8px;">PART TOOLS · click any map object to select</div>
@@ -2902,6 +2922,162 @@
     }, 2000);
 
     // ===== MAP STUDIO (cakecheeks22 only) =====
+
+    let studioGizmo = null;
+    let studioPanelHidden = false;
+
+    function ensureStudioGizmo() {
+      if (studioGizmo) return studioGizmo;
+      const g = new THREE.Group();
+      g.name = 'studioGizmo';
+      // Move: triangles (cones) on XYZ
+      const mkCone = (color, rot) => {
+        const m = new THREE.Mesh(
+          new THREE.ConeGeometry(0.18, 0.55, 8),
+          new THREE.MeshBasicMaterial({ color, depthTest: false })
+        );
+        m.rotation.set(rot[0], rot[1], rot[2]);
+        return m;
+      };
+      const moveG = new THREE.Group(); moveG.name = 'move';
+      const cx = mkCone(0xef4444, [0, 0, -Math.PI/2]); cx.position.set(1.2, 0, 0); moveG.add(cx);
+      const cy = mkCone(0x22c55e, [0, 0, 0]); cy.position.set(0, 1.2, 0); moveG.add(cy);
+      const cz = mkCone(0x3b82f6, [Math.PI/2, 0, 0]); cz.position.set(0, 0, 1.2); moveG.add(cz);
+      // axis lines
+      [[0xef4444,[1.2,0,0]],[0x22c55e,[0,1.2,0]],[0x3b82f6,[0,0,1.2]]].forEach(([col, p]) => {
+        const line = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.03, 0.03, 1.1, 6),
+          new THREE.MeshBasicMaterial({ color: col, depthTest: false })
+        );
+        if (p[0]) { line.rotation.z = Math.PI/2; line.position.set(p[0]/2,0,0); }
+        else if (p[1]) { line.position.set(0,p[1]/2,0); }
+        else { line.rotation.x = Math.PI/2; line.position.set(0,0,p[2]/2); }
+        moveG.add(line);
+      });
+      // Rotate: torus circles
+      const rotG = new THREE.Group(); rotG.name = 'rotate';
+      const mkRing = (color, rot) => {
+        const m = new THREE.Mesh(
+          new THREE.TorusGeometry(1.1, 0.04, 8, 48),
+          new THREE.MeshBasicMaterial({ color, depthTest: false, transparent: true, opacity: 0.9 })
+        );
+        m.rotation.set(rot[0], rot[1], rot[2]);
+        return m;
+      };
+      rotG.add(mkRing(0xef4444, [0, Math.PI/2, 0]));
+      rotG.add(mkRing(0x22c55e, [Math.PI/2, 0, 0]));
+      rotG.add(mkRing(0x3b82f6, [0, 0, 0]));
+      // Scale: little squares
+      const scaleG = new THREE.Group(); scaleG.name = 'scale';
+      const mkSq = (color, pos) => {
+        const m = new THREE.Mesh(
+          new THREE.BoxGeometry(0.28, 0.28, 0.28),
+          new THREE.MeshBasicMaterial({ color, depthTest: false })
+        );
+        m.position.set(...pos);
+        return m;
+      };
+      scaleG.add(mkSq(0xef4444, [1.0, 0, 0]));
+      scaleG.add(mkSq(0x22c55e, [0, 1.0, 0]));
+      scaleG.add(mkSq(0x3b82f6, [0, 0, 1.0]));
+      scaleG.add(mkSq(0xfbbf24, [0.7, 0.7, 0.7]));
+      g.add(moveG); g.add(rotG); g.add(scaleG);
+      g.visible = false;
+      scene.add(g);
+      studioGizmo = g;
+      return g;
+    }
+
+    function updateStudioGizmo() {
+      const g = ensureStudioGizmo();
+      if (!studioActive || !studioSelected) {
+        g.visible = false;
+        return;
+      }
+      g.visible = true;
+      g.position.copy(studioSelected.position);
+      // scale gizmo with distance so it stays readable
+      const dist = camera.position.distanceTo(studioSelected.position);
+      const s = Math.max(0.8, Math.min(4, dist * 0.08));
+      g.scale.set(s, s, s);
+      g.children.forEach(ch => {
+        ch.visible = false;
+        if (studioMode === 'move' && ch.name === 'move') ch.visible = true;
+        if (studioMode === 'rotate' && ch.name === 'rotate') ch.visible = true;
+        if (studioMode === 'scale' && ch.name === 'scale') ch.visible = true;
+      });
+    }
+
+    function showSelectedCode() {
+      if (!studioSelected) return;
+      const code = studioSelected.userData.code || '';
+      const ta = document.getElementById('studioCode');
+      if (ta) ta.value = code;
+      if (code) {
+        showToast('Loaded existing code on object');
+      } else {
+        showToast('No code on this object yet');
+      }
+    }
+
+    function toggleStudioPanel() {
+      studioPanelHidden = !studioPanelHidden;
+      const gui = document.getElementById('studioGui');
+      const btn = document.getElementById('studioTogglePanel');
+      if (gui) gui.style.display = studioPanelHidden ? 'none' : 'block';
+      if (btn) btn.textContent = studioPanelHidden ? 'Show Panel' : 'Hide Panel';
+    }
+
+    function openStudioModelEditor() {
+      const ed = document.getElementById('studioModelEditor');
+      if (ed) ed.style.display = 'block';
+    }
+    function closeStudioModelEditor(clear) {
+      const ed = document.getElementById('studioModelEditor');
+      if (ed) ed.style.display = 'none';
+      if (clear) {
+        const ta = document.getElementById('studioModelCode');
+        if (ta) ta.value = '';
+      }
+    }
+    function importStudioModelCode() {
+      const ta = document.getElementById('studioModelCode');
+      const raw = (ta && ta.value || '').trim();
+      if (!raw) { showToast('Paste model code first'); return; }
+      try {
+        // Capture meshes added to a local scene-like group
+        const bag = new THREE.Group();
+        const fakeScene = {
+          add: function(obj) { bag.add(obj); }
+        };
+        // Provide THREE + scene for pasted snippets
+        const fn = new Function('THREE', 'scene', raw);
+        fn(THREE, fakeScene);
+        if (!bag.children.length) {
+          // try eval style that returns nothing but uses scene.add
+          showToast('No meshes found — use scene.add(...)');
+          return;
+        }
+        bag.position.set(
+          studioOrbit.target.x + 2,
+          0.5,
+          studioOrbit.target.z + 2
+        );
+        bag.userData.studio = true;
+        bag.userData.shape = 'import';
+        bag.userData.code = raw.slice(0, 4000);
+        bag.userData.id = 'imp_' + Date.now();
+        scene.add(bag);
+        studioParts.push(bag);
+        studioSelected = bag;
+        showToast('Imported model spawned');
+        closeStudioModelEditor(true);
+      } catch (err) {
+        console.error(err);
+        showToast('Import failed: ' + (err && err.message ? err.message : 'error'));
+      }
+    }
+
     let studioActive = false;
     let studioParts = []; // { mesh, id, shape, code, anim }
     let studioSelected = null;
@@ -3074,9 +3250,11 @@
           studioSelected.position.x.toFixed(1) + ', ' +
           studioSelected.position.y.toFixed(1) + ', ' +
           studioSelected.position.z.toFixed(1);
+        showSelectedCode();
         showToast('Selected — drag to ' + studioMode);
       } else {
         if (info) info.textContent = 'Nothing selected';
+        try { updateStudioGizmo(); } catch (e) {}
       }
     }
 
@@ -3110,6 +3288,7 @@
           p.position.y = 0.5 + Math.sin(t * 2) * 0.15;
         }
       });
+      try { updateStudioGizmo(); } catch (e) {}
     }
 
     async function studioPublish(isPublic) {
@@ -6433,6 +6612,11 @@
     document.getElementById('epilepsyWarnBtn')?.addEventListener('click', () => triggerEpilepsyWarning());
     document.getElementById('studioPreviewBtn')?.addEventListener('click', () => openMapStudio());
     document.getElementById('studioExit')?.addEventListener('click', () => closeMapStudio());
+    document.getElementById('studioTogglePanel')?.addEventListener('click', () => toggleStudioPanel());
+    document.getElementById('studioModelEditorBtn')?.addEventListener('click', () => openStudioModelEditor());
+    document.getElementById('studioModelClose')?.addEventListener('click', () => closeStudioModelEditor(false));
+    document.getElementById('studioModelCancel')?.addEventListener('click', () => closeStudioModelEditor(true));
+    document.getElementById('studioModelImport')?.addEventListener('click', () => importStudioModelCode());
     document.getElementById('studioAddBtn')?.addEventListener('click', () => studioAddPart());
     document.getElementById('studioDelBtn')?.addEventListener('click', () => studioDeleteSelected());
     document.getElementById('studioPubPrivate')?.addEventListener('click', () => studioPublish(false));
