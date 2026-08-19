@@ -230,14 +230,16 @@
       <button type="button" id="studioPubPublic" style="padding:8px 12px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Publish Public</button>
       <button type="button" id="studioExit" style="padding:8px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Exit</button>
     </div>
-    <div id="studioGui" style="position:absolute;left:12px;bottom:12px;width:min(320px,92vw);background:rgba(30,41,59,0.95);border-radius:16px;padding:12px;box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.5);z-index:2;border:1px solid #334155;pointer-events:auto;">
-      <div style="color:#94a3b8;font-size:11px;font-weight:700;margin-bottom:8px;">PART TOOLS</div>
+    <div id="studioGui" style="position:absolute;left:12px;bottom:12px;width:min(340px,94vw);max-height:70vh;overflow-y:auto;background:rgba(30,41,59,0.96);border-radius:16px;padding:12px;box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.5);z-index:2;border:1px solid #334155;pointer-events:auto;">
+      <div style="color:#94a3b8;font-size:11px;font-weight:700;margin-bottom:8px;">PART TOOLS · click any map object to select</div>
       <select id="studioShape" style="width:100%;height:40px;margin-bottom:8px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;padding:0 8px;font-size:13px;">
         <option value="cube">CUBE</option>
         <option value="smooth">SMOOTH CUBE</option>
         <option value="sphere">CIRCLE / SPHERE</option>
         <option value="cone">TRIANGLE / CONE</option>
         <option value="tree">TREE</option>
+        <option value="cylinder">CYLINDER</option>
+        <option value="plane">PLANE</option>
       </select>
       <select id="studioAction" style="width:100%;height:40px;margin-bottom:8px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;padding:0 8px;font-size:13px;">
         <option value="add">ADD PARTS</option>
@@ -249,14 +251,27 @@
         <button type="button" id="studioAddBtn" style="flex:1;padding:10px;border:none;border-radius:8px;background:#22c55e;color:#fff;font-weight:800;cursor:pointer;">+ Add</button>
         <button type="button" id="studioDelBtn" style="flex:1;padding:10px;border:none;border-radius:8px;background:#f43f5e;color:#fff;font-weight:800;cursor:pointer;">Delete</button>
       </div>
-      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Move / Rotate / Scale selected</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
-        <button type="button" class="studioModeBtn" data-mode="move" style="padding:8px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Move</button>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Transform (drag on map after select)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
+        <button type="button" class="studioModeBtn" data-mode="move" style="padding:8px;border:none;border-radius:8px;background:#0ea5e9;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Move</button>
         <button type="button" class="studioModeBtn" data-mode="rotate" style="padding:8px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Rotate</button>
         <button type="button" class="studioModeBtn" data-mode="scale" style="padding:8px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Scale</button>
+        <button type="button" class="studioModeBtn" data-mode="orbit" style="padding:8px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Orbit</button>
       </div>
-      <textarea id="studioCode" placeholder="// CODE — runs when part is published (optional label)" style="width:100%;height:72px;border-radius:8px;background:#0f172a;color:#86efac;border:1px solid #475569;padding:8px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
-      <div id="studioHint" style="margin-top:8px;font-size:11px;color:#64748b;">Tap map to place · Drag to orbit · Select part to edit</div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Nudge selected</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px;">
+        <button type="button" data-nudge="x-" style="padding:6px;border:none;border-radius:6px;background:#475569;color:#fff;font-size:11px;cursor:pointer;">X-</button>
+        <button type="button" data-nudge="y+" style="padding:6px;border:none;border-radius:6px;background:#475569;color:#fff;font-size:11px;cursor:pointer;">Y+</button>
+        <button type="button" data-nudge="x+" style="padding:6px;border:none;border-radius:6px;background:#475569;color:#fff;font-size:11px;cursor:pointer;">X+</button>
+        <button type="button" data-nudge="z-" style="padding:6px;border:none;border-radius:6px;background:#475569;color:#fff;font-size:11px;cursor:pointer;">Z-</button>
+        <button type="button" data-nudge="y-" style="padding:6px;border:none;border-radius:6px;background:#475569;color:#fff;font-size:11px;cursor:pointer;">Y-</button>
+        <button type="button" data-nudge="z+" style="padding:6px;border:none;border-radius:6px;background:#475569;color:#fff;font-size:11px;cursor:pointer;">Z+</button>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Color</div>
+      <input type="color" id="studioColor" value="#38bdf8" style="width:100%;height:36px;margin-bottom:8px;border:none;border-radius:8px;cursor:pointer;">
+      <textarea id="studioCode" placeholder="// CODE label / notes for this part" style="width:100%;height:56px;border-radius:8px;background:#0f172a;color:#86efac;border:1px solid #475569;padding:8px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
+      <div id="studioSelInfo" style="margin-top:8px;font-size:11px;color:#7dd3fc;">Nothing selected</div>
+      <div id="studioHint" style="margin-top:6px;font-size:11px;color:#64748b;">Select any block on the map · Move mode + drag to move · Orbit mode to look around</div>
     </div>
   </div>
 
@@ -2890,7 +2905,7 @@
     let studioActive = false;
     let studioParts = []; // { mesh, id, shape, code, anim }
     let studioSelected = null;
-    let studioMode = 'move'; // move | rotate | scale
+    let studioMode = 'move'; // move | rotate | scale | orbit
     let studioDragging = false;
     let studioLastX = 0, studioLastY = 0;
     let studioOrbit = { yaw: 0.6, pitch: 0.4, dist: 40, target: new THREE.Vector3(0, 0, 0) };
@@ -2960,6 +2975,11 @@
         trunk.position.y = 0.7; mesh.add(trunk);
         const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.7,8,6), new THREE.MeshStandardMaterial({ color: 0x38571a }));
         leaf.position.y = 1.6; mesh.add(leaf);
+      } else if (shape === 'cylinder') {
+        mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.2, 16), mat);
+      } else if (shape === 'plane') {
+        mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+        mesh.rotation.x = -Math.PI / 2;
       } else {
         mesh = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat);
       }
@@ -2998,10 +3018,16 @@
 
     function studioDeleteSelected() {
       if (!studioSelected) return;
-      scene.remove(studioSelected);
-      studioParts = studioParts.filter(p => p !== studioSelected);
+      const obj = studioSelected;
       studioSelected = null;
+      try {
+        if (obj.parent) obj.parent.remove(obj);
+        scene.remove(obj);
+      } catch (e) {}
+      studioParts = studioParts.filter(p => p !== obj);
       showToast('Deleted');
+      const info = document.getElementById('studioSelInfo');
+      if (info) info.textContent = 'Nothing selected';
     }
 
     function studioSelectAt(clientX, clientY) {
@@ -3010,15 +3036,47 @@
       const my = -((clientY - rect.top) / rect.height) * 2 + 1;
       const ray = new THREE.Raycaster();
       ray.setFromCamera({ x: mx, y: my }, camera);
-      const hits = ray.intersectObjects(studioParts, true);
-      if (!hits.length) { studioSelected = null; return; }
-      let o = hits[0].object;
-      while (o && !o.userData.studio) o = o.parent;
-      studioSelected = o || null;
+      // Select ANY mesh in the map (trees, props, studio parts, etc.)
+      const hits = ray.intersectObjects(scene.children, true);
+      studioSelected = null;
+      for (const h of hits) {
+        let o = h.object;
+        if (!o || !o.isMesh && !o.isGroup) continue;
+        // skip player, pets path animals, pure particles
+        if (o === player || (player && player.children && player.children.includes(o))) continue;
+        if (o.parent === player) continue;
+        // climb to a sensible transform root (group if useful)
+        let root = o;
+        while (root.parent && root.parent !== scene && root.parent.type === 'Group' && !root.parent.isScene) {
+          // stop at first group that isn't the scene
+          if (root.parent.userData && (root.parent.userData.studio || root.parent.userData.isTree)) {
+            root = root.parent; break;
+          }
+          if (root.parent.children.length > 1 && root.parent !== scene) {
+            root = root.parent;
+            break;
+          }
+          root = root.parent;
+        }
+        // Prefer moving the hit mesh if it's a direct scene child mesh
+        if (o.parent === scene) root = o;
+        studioSelected = root;
+        if (!studioSelected.userData) studioSelected.userData = {};
+        studioSelected.userData.studioEditable = true;
+        break;
+      }
+      const info = document.getElementById('studioSelInfo');
       if (studioSelected) {
         const code = document.getElementById('studioCode');
         if (code) code.value = studioSelected.userData.code || '';
-        showToast('Selected ' + (studioSelected.userData.shape || 'part'));
+        const n = studioSelected.name || studioSelected.userData.shape || studioSelected.type || 'object';
+        if (info) info.textContent = 'Selected: ' + n + ' @ ' +
+          studioSelected.position.x.toFixed(1) + ', ' +
+          studioSelected.position.y.toFixed(1) + ', ' +
+          studioSelected.position.z.toFixed(1);
+        showToast('Selected — drag to ' + studioMode);
+      } else {
+        if (info) info.textContent = 'Nothing selected';
       }
     }
 
@@ -6379,6 +6437,30 @@
     document.getElementById('studioDelBtn')?.addEventListener('click', () => studioDeleteSelected());
     document.getElementById('studioPubPrivate')?.addEventListener('click', () => studioPublish(false));
     document.getElementById('studioPubPublic')?.addEventListener('click', () => studioPublish(true));
+    
+    document.querySelectorAll('[data-nudge]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!studioSelected) { showToast('Select something first'); return; }
+        const k = btn.getAttribute('data-nudge');
+        const step = 0.5;
+        if (k === 'x+') studioSelected.position.x += step;
+        if (k === 'x-') studioSelected.position.x -= step;
+        if (k === 'y+') studioSelected.position.y += step;
+        if (k === 'y-') studioSelected.position.y -= step;
+        if (k === 'z+') studioSelected.position.z += step;
+        if (k === 'z-') studioSelected.position.z -= step;
+      });
+    });
+    document.getElementById('studioColor')?.addEventListener('input', (e) => {
+      if (!studioSelected) return;
+      const hex = e.target.value;
+      studioSelected.traverse(c => {
+        if (c.isMesh && c.material && c.material.color) {
+          c.material.color.set(hex);
+        }
+      });
+    });
+
     document.querySelectorAll('.studioModeBtn').forEach(btn => {
       btn.addEventListener('click', () => {
         studioMode = btn.getAttribute('data-mode') || 'move';
@@ -6397,17 +6479,26 @@
       const dx = e.clientX - studioLastX;
       const dy = e.clientY - studioLastY;
       studioLastX = e.clientX; studioLastY = e.clientY;
-      if (studioSelected && (e.shiftKey || studioMode !== 'orbit')) {
+      if (studioSelected && studioMode !== 'orbit') {
         if (studioMode === 'move') {
-          studioSelected.position.x += dx * 0.05;
-          studioSelected.position.z += dy * 0.05;
+          // move on XZ ground plane; hold Alt for Y
+          if (e.altKey) studioSelected.position.y += -dy * 0.05;
+          else {
+            studioSelected.position.x += dx * 0.08;
+            studioSelected.position.z += dy * 0.08;
+          }
         } else if (studioMode === 'rotate') {
-          studioSelected.rotation.y += dx * 0.02;
-          studioSelected.rotation.x += dy * 0.02;
+          studioSelected.rotation.y += dx * 0.025;
+          studioSelected.rotation.x += dy * 0.025;
         } else if (studioMode === 'scale') {
-          const s = 1 + dy * -0.01;
-          studioSelected.scale.multiplyScalar(Math.max(0.1, Math.min(2, s)));
+          const s = 1 + (-dy) * 0.012;
+          studioSelected.scale.multiplyScalar(Math.max(0.05, Math.min(1.5, s)));
         }
+        const info = document.getElementById('studioSelInfo');
+        if (info) info.textContent = 'pos ' +
+          studioSelected.position.x.toFixed(1) + ', ' +
+          studioSelected.position.y.toFixed(1) + ', ' +
+          studioSelected.position.z.toFixed(1);
       } else {
         studioOrbit.yaw -= dx * 0.01;
         studioOrbit.pitch = Math.max(0.05, Math.min(1.4, studioOrbit.pitch + dy * 0.01));
