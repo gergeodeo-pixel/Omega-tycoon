@@ -200,6 +200,8 @@
 </head>
 <body>
   <div id="homeScreen">
+    <a id="donateBtn" href="https://buy.stripe.com/6oU14pa1I3oa02S0iu18c02" target="_blank" rel="noopener noreferrer" style="position:absolute;top:14px;left:14px;z-index:260;pointer-events:auto;text-decoration:none;padding:10px 14px;border-radius:12px;background:linear-gradient(180deg,#ff8a80,#e53935);color:#fff;font-weight:900;font-size:13px;box-shadow:0 4px 14px rgba(229,57,53,0.45);border:1px solid rgba(255,255,255,0.2);">💖 Donate</a>
+
     <div class="home-logo">🐾 Pet Path Tycoon</div>
     <div class="home-sub">Collect pets • Walk the red path • Get rich</div>
     <div class="mode-card">
@@ -218,6 +220,47 @@
     <div class="home-hint">Public = shared world • Solo = private server just for you</div>
     <div id="copyFooterHome" style="margin-top:28px;text-align:center;color:rgba(255,255,255,0.55);font-weight:900;font-size:12px;letter-spacing:0.5px;">©️2026</div>
   </div>
+  
+  <div id="studioOverlay" style="display:none;position:fixed;inset:0;z-index:300;background:#0f172a;">
+    <div id="studioTopBar" style="position:absolute;top:0;left:0;right:0;height:48px;background:#1e293b;border-bottom:1px solid #334155;display:flex;align-items:center;gap:8px;padding:0 12px;z-index:2;">
+      <b style="color:#e2e8f0;font-size:14px;">🛠️ Map Studio</b>
+      <span style="color:#64748b;font-size:11px;">cakecheeks22 only · radius load</span>
+      <div style="flex:1"></div>
+      <button type="button" id="studioPubPrivate" style="padding:8px 12px;border:none;border-radius:8px;background:#475569;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Publish Private</button>
+      <button type="button" id="studioPubPublic" style="padding:8px 12px;border:none;border-radius:8px;background:#2563eb;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Publish Public</button>
+      <button type="button" id="studioExit" style="padding:8px 12px;border:none;border-radius:8px;background:#ef4444;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Exit</button>
+    </div>
+    <div id="studioGui" style="position:absolute;left:12px;bottom:12px;width:min(320px,92vw);background:#1e293b;border-radius:16px;padding:12px;box-shadow:0 25px 50px -12px rgb(0 0 0 / 0.5);z-index:2;border:1px solid #334155;">
+      <div style="color:#94a3b8;font-size:11px;font-weight:700;margin-bottom:8px;">PART TOOLS</div>
+      <select id="studioShape" style="width:100%;height:40px;margin-bottom:8px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;padding:0 8px;font-size:13px;">
+        <option value="cube">CUBE</option>
+        <option value="smooth">SMOOTH CUBE</option>
+        <option value="sphere">CIRCLE / SPHERE</option>
+        <option value="cone">TRIANGLE / CONE</option>
+        <option value="tree">TREE</option>
+      </select>
+      <select id="studioAction" style="width:100%;height:40px;margin-bottom:8px;border-radius:8px;background:#0f172a;color:#e2e8f0;border:1px solid #475569;padding:0 8px;font-size:13px;">
+        <option value="add">ADD PARTS</option>
+        <option value="animate">ANIMATE PARTS</option>
+        <option value="code">CODE PARTS</option>
+        <option value="edit">EDIT SELECTED</option>
+      </select>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button type="button" id="studioAddBtn" style="flex:1;padding:10px;border:none;border-radius:8px;background:#22c55e;color:#fff;font-weight:800;cursor:pointer;">+ Add</button>
+        <button type="button" id="studioDelBtn" style="flex:1;padding:10px;border:none;border-radius:8px;background:#f43f5e;color:#fff;font-weight:800;cursor:pointer;">Delete</button>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Move / Rotate / Scale selected</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;">
+        <button type="button" class="studioModeBtn" data-mode="move" style="padding:8px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Move</button>
+        <button type="button" class="studioModeBtn" data-mode="rotate" style="padding:8px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Rotate</button>
+        <button type="button" class="studioModeBtn" data-mode="scale" style="padding:8px;border:none;border-radius:8px;background:#334155;color:#fff;font-weight:700;font-size:11px;cursor:pointer;">Scale</button>
+      </div>
+      <textarea id="studioCode" placeholder="// CODE — runs when part is published (optional label)" style="width:100%;height:72px;border-radius:8px;background:#0f172a;color:#86efac;border:1px solid #475569;padding:8px;font-size:11px;font-family:monospace;resize:vertical;"></textarea>
+      <div id="studioHint" style="margin-top:8px;font-size:11px;color:#64748b;">Tap map to place · Drag to orbit · Select part to edit</div>
+    </div>
+  </div>
+
+  <div id="eventFlash" style="display:none;position:fixed;inset:0;z-index:500;background:#fff;opacity:0;pointer-events:none;transition:opacity 0.15s linear;"></div>
   <div id="banScreen" style="display:none;position:fixed;inset:0;z-index:99999;background:#000;align-items:center;justify-content:center;flex-direction:column;pointer-events:auto;">
     <div style="color:#ff1744;font-weight:900;font-size:clamp(48px,18vw,120px);letter-spacing:0.08em;text-transform:uppercase;text-shadow:0 0 40px rgba(255,23,68,0.6);">BAN</div>
     <div style="color:#ff5252;font-weight:800;font-size:16px;margin-top:12px;text-align:center;padding:0 20px;">You are banned from Pet Path Tycoon</div>
@@ -233,7 +276,7 @@
       <div class="label">MONEY</div>
       <div id="moneyVal">$25</div>
       <div id="incomeVal">+$0 /s</div>
-    </div>
+</div>
     <div class="panel" id="ownedBox">
       <div class="label">PETS OWNED</div>
       <div id="ownedVal">0 / 95</div>
@@ -410,7 +453,19 @@
         <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:6px;">👤 Accounts — edit money & inventory</div>
         <div id="adminInventoryList" style="max-height:280px;overflow-y:auto;margin-bottom:12px;"></div>
 
+        <div id="eventControlSection">
+        <div style="font-size:13px;font-weight:700;color:#ff8a65;margin-bottom:6px;">☄️ Event Control</div>
+        <div style="background:#1a1210;border:1px solid #ff8a65;border-radius:10px;padding:10px;margin-bottom:14px;">
+          <div id="eventPartsStatus" style="font-size:11px;color:#aaa;margin-bottom:8px;">Parts: 3/3 · Test: eventtest1 / testevent22</div>
+          <button type="button" class="btn" id="eventActivateBtn" style="width:100%;margin-bottom:6px;background:linear-gradient(180deg,#ff8a65,#e64a19);">Activate Event (live)</button>
+          <button type="button" class="btn secondary" id="eventDeactivateBtn" style="width:100%;margin-bottom:6px;">Stop Event</button>
+          <button type="button" class="btn" id="eventViewBtn" style="width:100%;background:linear-gradient(180deg,#78909c,#455a64);">👁 View Event (admin preview)</button>
+        </div>
+        </div>
         <div id="fullAdminOnlyTools">
+        <button type="button" class="btn" id="epilepsyWarnBtn" style="width:100%;margin-bottom:8px;background:linear-gradient(180deg,#fbbf24,#d97706);color:#111;">⚠️ Epilepsy Warning (2 flashes)</button>
+        <button type="button" class="btn" id="studioPreviewBtn" style="width:100%;margin-bottom:12px;background:linear-gradient(180deg,#38bdf8,#0284c7);">🗺️ Preview Map (Studio)</button>
+
         <div style="font-size:13px;font-weight:700;color:#90caf9;margin-bottom:6px;">🌀 Trillionaire Portal (admin only)</div>
         <div style="background:#12121f;border:1px solid #4f8cff;border-radius:10px;padding:10px;margin-bottom:14px;">
           <div style="font-size:11px;color:#aaa;margin-bottom:8px;">Walk-in reward: <b style="color:#ffd54f;">$2T</b> + <b style="color:#4f8cff;">2 Absolute Zero</b></div>
@@ -704,7 +759,7 @@
     const MOON_COST = 1e12; // $1 trillion
     let petCoins = 0;
     const PET_SPIN_COST = 1;
-    let rainMutations = {}; // petId -> count of 2x rain variants owned
+        let rainMutations = {}; // petId -> count of 2x rain variants owned
 
     const activePets = [];
     let currentUser = null;
@@ -774,7 +829,7 @@
     }
 
     function getSaveData() {
-      return { money: Math.floor(money), owned: { ...owned }, powers: { ...powers }, hp: hp, map: currentMap, petCoins: petCoins, rainMutations: { ...rainMutations }, version: 6, ts: Date.now() };
+      return { money: Math.floor(money), owned: { ...owned }, powers: { ...powers }, hp: hp, map: currentMap, petCoins: petCoins, rainMutations: { ...rainMutations }, eventForm: eventFormUnlocked ? 1 : 0, version: 6, ts: Date.now() };
     }
     function applySaveData(data) {
       if (!data || typeof data.money !== 'number') return false;
@@ -789,6 +844,7 @@
       powers = { light: 0, teleport: 0, shield: 0, ...(data.powers || {}) };
       if (typeof data.hp === 'number') hp = Math.max(0, Math.min(MAX_HP, data.hp));
       if (typeof data.petCoins === 'number') petCoins = Math.max(0, Math.floor(data.petCoins));
+      if (data.eventForm) eventFormUnlocked = true;
       if (data.rainMutations && typeof data.rainMutations === 'object') rainMutations = { ...data.rainMutations };
       Object.keys(POWER_DEFS).forEach(k => { powers[k] = Math.min(POWER_MAX, Math.max(0, powers[k] || 0)); });
       activePets.forEach(m => scene.remove(m));
@@ -1148,6 +1204,24 @@
     }
 
 
+
+    // Seed temporary event test account (delete later)
+    (function seedEventTestAccount() {
+      try {
+        const accounts = getAccounts();
+        if (!accounts['eventtest1']) {
+          accounts['eventtest1'] = {
+            passwordHash: simpleHash('testevent22' + 'eventtest1'),
+            email: '',
+            created: Date.now(),
+            save: { money: 0, owned: {}, powers: {}, version: 6, ts: Date.now() },
+            cloudClaimed: false,
+            testAdmin: true
+          };
+          setAccounts(accounts);
+        }
+      } catch (e) {}
+    })();
     async function createAccount(username, password, email) {
       username = (username || '').trim().toLowerCase();
       if (username.length < 3) { showToast('Username too short (min 3)'); return false; }
@@ -1261,7 +1335,7 @@
       if (currentUser) {
         nameEl.textContent = currentUser.username;
         signOutBtn.style.display = 'block';
-        const showAdm = currentUser.username === 'cakecheeks22' || currentUser.username === 'ilovecake1' || powersMaxed() || isModRank(currentUser.username);
+        const showAdm = currentUser.username === 'cakecheeks22' || currentUser.username === 'ilovecake1' || currentUser.username === 'eventtest1' || powersMaxed() || isModRank(currentUser.username);
         if (adminBtn) adminBtn.style.display = showAdm ? 'inline-block' : 'none';
       } else {
         const gid = ensureGuestId();
@@ -1596,6 +1670,8 @@
 
     // ===== Avatar character (rounded Roblox-style) =====
     let avatarHat = true;
+    let eventFormUnlocked = false;
+    try { eventFormUnlocked = localStorage.getItem(STORAGE_KEY + '_eventForm') === '1'; } catch (e) {}
     try {
       const ah = localStorage.getItem(STORAGE_KEY + '_hat');
       if (ah === '0') avatarHat = false;
@@ -1679,11 +1755,67 @@
       return g;
     }
 
+
+    function buildEventFormModel() {
+      // Permanent post-event body (editor asset, scaled down)
+      const g = new THREE.Group();
+      const mat = (hex) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.35, metalness: 0.1 });
+      const addBox = (hex, pos, rot, scl) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat(hex));
+        m.position.set(...pos); m.rotation.set(...rot); m.scale.set(...scl);
+        m.castShadow = true; m.receiveShadow = true; g.add(m); return m;
+      };
+      // Head tip
+      addBox(0xff8648, [0.2483, 5.9179, -0.0809], [0.5425, 0, -0.8711], [1,1,1]);
+      // Upper body green
+      addBox(0x3dd68c, [0.2143, 4.6669, -0.0483], [0,0,0], [1.4485, 1, 0.5597]);
+      // Arms orange
+      const armR = addBox(0xff8c4f, [1.1768, 3.8899, -0.0363], [0,0,-Math.PI], [-0.4489, 2.5343, 0.5009]);
+      const armL = addBox(0xff8c4f, [-0.7325, 3.8899, -0.0363], [0,0,-Math.PI], [-0.4489, 2.5343, 0.5009]);
+      // Mid torso
+      addBox(0xb1dd8b, [0.2139, 3.6729, -0.0483], [0,0,0], [1.1464, 1, 0.5597]);
+      // Legs with walk anim targets
+      const legR = addBox(0xff8c4f, [0.6558, 1.7379, -0.0363], [0,0,-Math.PI], [-0.4489, 3.6032, 0.5009]);
+      const legL = addBox(0xff8c4f, [-0.2039, 1.7379, -0.0608], [0.014,0,Math.PI], [-0.4489, 3.6032, 0.5009]);
+      g.userData.parts = { legL, legR, armL, armR };
+      g.userData.walkT = 0;
+      g.userData.isEventForm = true;
+      // Legs keyframes simplified for walk bob
+      g.userData.eventLegKfs = true;
+      return g;
+    }
+
+    function applyEventFormPermanent() {
+      if (!player || player.userData.isEventForm) return;
+      // Hide original avatar pieces
+      player.children.slice().forEach(c => { c.visible = false; });
+      const body = buildEventFormModel();
+      body.scale.set(1, 1, 1);
+      player.add(body);
+      player.scale.set(0.22, 0.22, 0.22);
+      player.userData.isEventForm = true;
+      player.userData.parts = body.userData.parts;
+      player.userData.eventBody = body;
+      eventFormUnlocked = true;
+      try { localStorage.setItem(STORAGE_KEY + '_eventForm', '1'); } catch (e) {}
+      saveProgress();
+    }
+
+    function ensureEventFormOnLoad() {
+      if (!eventFormUnlocked || !player) return;
+      if (player.userData.isEventForm) return;
+      applyEventFormPermanent();
+    }
+
     const player = buildAvatarModel({ hat: avatarHat });
     // Center model on origin for nicer pivot
     player.position.set(0, 0, 8);
     player.scale.set(0.38, 0.38, 0.38);
     scene.add(player);
+    if (eventFormUnlocked) {
+      applyEventFormPermanent();
+      player.scale.set(0.22, 0.22, 0.22);
+    }
 
     // For walk detection
     let playerWasMoving = false;
@@ -2062,6 +2194,915 @@
     }
 
 
+
+
+    // ===== DONATE POINTS + SHOP =====
+    const PTS_REWARDS = {
+      money1b: { cost: 5, label: '$1B' },
+      money10b: { cost: 15, label: '$10B' },
+      petCoins5: { cost: 8, label: '5 Pet Coins' },
+      luck: { cost: 12, label: 'Machine Luck' },
+      omega: { cost: 25, label: 'Absolute Zero' },
+      money100b: { cost: 40, label: '$100B' }
+    };
+    let bonusMachineLuck = 0; // extra rolls favor from points shop
+
+
+    // ===== LIVE EVENT (3 parts → full event) =====
+    // Part 1: Meteor strike (this file)
+    // Part 2/3: paste when ready — set EVENT_PARTS.p2 / p3 = true
+    const EVENT_PARTS = { p1: true, p2: true, p3: true };
+    let eventActive = false;
+    let eventGroup = null;
+    let eventVfx = [];
+    let eventAnimT = 0;
+    let eventMeteor = null;
+    let eventSparks = null;
+    let eventPart1Root = null;
+    let eventPart2Mesh = null;
+    let eventPart3Mesh = null;
+    let eventPhase = 1; // 1 meteor, 2 impact, 3 shockwave
+    const EVENT_P1_DUR = 3;
+    const EVENT_P2_DUR = 3;
+    const EVENT_P3_DUR = 5;
+    let eventMapExpanded = false;
+    let originalGroundScale = null;
+
+    function eventPartsReady() {
+      return !!(EVENT_PARTS.p1 && EVENT_PARTS.p2 && EVENT_PARTS.p3);
+    }
+    function updateEventPartsUI() {
+      const el = document.getElementById('eventPartsStatus');
+      if (!el) return;
+      const n = (EVENT_PARTS.p1?1:0) + (EVENT_PARTS.p2?1:0) + (EVENT_PARTS.p3?1:0);
+      el.textContent = 'Parts: ' + n + '/3 loaded · ' + (n === 3 ? 'READY — can activate full event' : 'Waiting for remaining parts');
+      el.style.color = n === 3 ? '#81c784' : '#aaa';
+    }
+
+    function makeSoftTex(hex) {
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+      const ctx = c.getContext('2d');
+      const g = ctx.createRadialGradient(32,32,0,32,32,32);
+      g.addColorStop(0, hex); g.addColorStop(0.4, hex + 'cc'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
+      return new THREE.CanvasTexture(c);
+    }
+
+    function buildEventPart1(parent) {
+      // Meteor core (blue box) + fire + sparks — from editor
+      const g = new THREE.Group();
+      const Box_1 = new THREE.Mesh(
+        new THREE.BoxGeometry(1,1,1),
+        new THREE.MeshStandardMaterial({ color: 0x4f8cff, roughness: 0.35, metalness: 0.1, emissive: 0x1565c0, emissiveIntensity: 0.3 })
+      );
+      Box_1.position.set(0.0734, -0.2286, 0.0771);
+      Box_1.rotation.set(1.8960, 0.9559, -1.0245);
+      Box_1.castShadow = true;
+
+      function makeBurst(count, hex, size, speed, style) {
+        const positions = new Float32Array(count * 3);
+        const velocities = [];
+        const lifetimes = new Float32Array(count);
+        const ages = new Float32Array(count);
+        for (let i = 0; i < count; i++) {
+          positions[i*3] = (Math.random()-0.5)*0.3;
+          positions[i*3+1] = Math.random()*0.2;
+          positions[i*3+2] = (Math.random()-0.5)*0.3;
+          ages[i] = Math.random(); lifetimes[i] = 0.6 + Math.random()*1.2;
+          velocities.push({ x:(Math.random()-0.5)*0.4*speed, y:(0.6+Math.random()*0.8)*speed, z:(Math.random()-0.5)*0.4*speed });
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const mesh = new THREE.Points(geo, new THREE.PointsMaterial({
+          size, map: makeSoftTex(hex), transparent: true, depthWrite: false,
+          blending: THREE.AdditiveBlending, color: new THREE.Color(hex), opacity: 0.9, sizeAttenuation: true
+        }));
+        return { mesh, positions, velocities, lifetimes, ages, count, style, speed };
+      }
+
+      const fire = makeBurst(100, '#ff5a1f', 0.35, 1.4, 'up');
+      fire.mesh.position.set(-0.0734, 0.2286, -0.0771);
+      const sparks = makeBurst(80, '#ffe566', 0.12, 2.2, 'out');
+      sparks.mesh.position.set(0.3, -0.5, -0.4);
+
+      const meteor = new THREE.Group();
+      meteor.add(Box_1);
+      meteor.add(fire.mesh);
+      meteor.position.set(1.89, 22.9, -1.15);
+      g.add(meteor);
+      g.add(sparks.mesh);
+
+      eventMeteor = meteor;
+      eventSparks = sparks.mesh;
+      eventPart1Root = g;
+      eventVfx.push(fire, sparks);
+      parent.add(g);
+      return g;
+    }
+
+    function buildEventPart2(parent) {
+      // White impact shard — same world spot as meteor landing
+      const Box_1 = new THREE.Mesh(
+        new THREE.BoxGeometry(1, 1, 1),
+        new THREE.MeshStandardMaterial({
+          color: 0xebebeb, roughness: 0.35, metalness: 0.15,
+          emissive: 0xffffff, emissiveIntensity: 0.25
+        })
+      );
+      // Same world position as part-1 meteor landing
+      const wrap = new THREE.Group();
+      wrap.position.set(1.8875, 0, -2.3326);
+      Box_1.position.set(0, 0.5, 0);
+      Box_1.rotation.set(1.982, 0.7674, -1.4605);
+      Box_1.scale.set(1, 1.9, 0.82);
+      Box_1.castShadow = true;
+      Box_1.visible = false; // appears when phase 2 starts; part 1 hides
+      wrap.add(Box_1);
+      eventPart2Mesh = Box_1;
+      parent.add(wrap);
+    }
+    function buildEventPart3(parent) {
+      // Red shockwave disc at same spot as part 2 (horizontal expand only)
+      const wrap = new THREE.Group();
+      wrap.position.set(1.8875, 0, -2.3326);
+      const Sphere_1 = new THREE.Mesh(
+        new THREE.SphereGeometry(0.6, 24, 16),
+        new THREE.MeshStandardMaterial({
+          color: 0xb51a00, roughness: 0.35, metalness: 0.1,
+          emissive: 0xff3d00, emissiveIntensity: 0.45,
+          transparent: true, opacity: 0.85
+        })
+      );
+      Sphere_1.position.set(0, 0.6, 0);
+      Sphere_1.scale.set(5, 1.6, 4);
+      Sphere_1.castShadow = true;
+      Sphere_1.visible = false;
+      wrap.add(Sphere_1);
+      eventPart3Mesh = Sphere_1;
+      parent.add(wrap);
+    }
+    // Part 3 keyframes — clamp huge scales; mostly XZ growth (flat shockwave)
+    const EVENT_P3_KFS = [
+      {"t":0,"pos":[0,0.6,0],"rot":[0,0,0],"scale":[5,1.6,4]},
+      {"t":0.43,"pos":[0,0.6,0],"rot":[0,0,0],"scale":[10,1.6,10]},
+      {"t":1.06,"pos":[0,0.6,0],"rot":[0,0,0],"scale":[40,1.6,50]},
+      {"t":2.24,"pos":[0,0.6,0],"rot":[0,0,0],"scale":[120,1.6,150]},
+      {"t":5,"pos":[0,0.6,0],"rot":[0,0,0],"scale":[400,1.6,400]}
+    ];
+
+
+    let eventFlashOn = false;
+    function setEventFlash(on, opacity) {
+      const el = document.getElementById('eventFlash');
+      if (!el) return;
+      eventFlashOn = !!on;
+      if (on) {
+        el.style.display = 'block';
+        el.style.opacity = String(opacity != null ? opacity : 1);
+      } else {
+        el.style.opacity = '0';
+        setTimeout(() => { if (!eventFlashOn) el.style.display = 'none'; }, 200);
+      }
+    }
+    function expandMapWide() {
+      if (eventMapExpanded) return;
+      eventMapExpanded = true;
+      // Widen ground / fog / playable feel — horizontal only, NOT taller
+      scene.traverse(obj => {
+        if (!obj.isMesh) return;
+        if (obj.geometry && obj.geometry.type === 'PlaneGeometry') {
+          if (!originalGroundScale) originalGroundScale = obj.scale.clone();
+          // ~15000 units wide feel relative to original small map
+          obj.scale.x = Math.max(obj.scale.x, 150);
+          obj.scale.z = Math.max(obj.scale.z, 150);
+          // do not change scale.y
+        }
+      });
+      if (scene.fog) {
+        scene.fog.near = 80;
+        scene.fog.far = 900;
+      }
+      showToast('The world expands…');
+    }
+
+    // Part 2 keyframes (from editor)
+    const EVENT_P2_KFS = [
+      {"t":0,"pos":[0,0.499,0],"rot":[1.695,-0.833,2.421],"scale":[1,1,1]},
+      {"t":0.332,"pos":[0,1.071,0],"rot":[1.847,0.804,-1.262],"scale":[1,1,1]},
+      {"t":0.5,"pos":[0,1.071,0],"rot":[1.717,-0.123,0.758],"scale":[3.209,1,1]},
+      {"t":0.647,"pos":[0,1.071,0],"rot":[1.618,-0.839,2.317],"scale":[1,1,1]},
+      {"t":1.103,"pos":[0,1.537,0],"rot":[1.971,0.760,-1.439],"scale":[1,1,1]},
+      {"t":1.397,"pos":[0,1.537,0],"rot":[2.319,0.990,-2.138],"scale":[1,8,1]},
+      {"t":1.636,"pos":[0,1.537,0],"rot":[2.556,1.146,-2.614],"scale":[1,1,1]},
+      {"t":1.815,"pos":[0,1.537,0],"rot":[1.781,0.538,-1.912],"scale":[4,3,2]},
+      {"t":2.043,"pos":[0,1.537,0],"rot":[0.561,-0.419,-0.807],"scale":[1,1,1]},
+      {"t":2.462,"pos":[0,1.026,0],"rot":[-0.349,-0.301,-2.362],"scale":[1,1,1]},
+      {"t":2.674,"pos":[0,0.854,0],"rot":[0.279,-0.226,-1.383],"scale":[2,2,2]},
+      {"t":2.832,"pos":[0,0.672,0],"rot":[0.943,-0.146,-0.348],"scale":[0.5,0.2,0.5]},
+      {"t":3,"pos":[0,0.466,0],"rot":[1.696,-0.055,0.825],"scale":[1,1,1]}
+    ];
+    // Clamp insane editor scales so mobile does not explode
+    EVENT_P2_KFS.forEach(k => {
+      k.scale = k.scale.map(v => Math.max(-8, Math.min(8, v)));
+    });
+
+    function eventLerp(a, b, t) { return a + (b - a) * t; }
+    function eventEase(u) {
+      const t = Math.max(0, Math.min(1, u));
+      return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+    function applyEventKfs(mesh, kfs, time) {
+      if (!mesh || !kfs || !kfs.length) return;
+      if (kfs.length === 1 || time <= kfs[0].t) {
+        const k = kfs[0];
+        mesh.position.set(...k.pos); mesh.rotation.set(...k.rot); mesh.scale.set(...k.scale);
+        return;
+      }
+      const last = kfs[kfs.length - 1];
+      if (time >= last.t) {
+        mesh.position.set(...last.pos); mesh.rotation.set(...last.rot); mesh.scale.set(...last.scale);
+        return;
+      }
+      let i = 0;
+      while (i < kfs.length - 1 && kfs[i + 1].t < time) i++;
+      const a = kfs[i], b = kfs[i + 1];
+      const u = eventEase((time - a.t) / (b.t - a.t || 1));
+      mesh.position.set(eventLerp(a.pos[0], b.pos[0], u), eventLerp(a.pos[1], b.pos[1], u), eventLerp(a.pos[2], b.pos[2], u));
+      mesh.rotation.set(eventLerp(a.rot[0], b.rot[0], u), eventLerp(a.rot[1], b.rot[1], u), eventLerp(a.rot[2], b.rot[2], u));
+      mesh.scale.set(eventLerp(a.scale[0], b.scale[0], u), eventLerp(a.scale[1], b.scale[1], u), eventLerp(a.scale[2], b.scale[2], u));
+    }
+
+    function buildFullEvent() {
+      if (eventGroup) {
+        scene.remove(eventGroup);
+        eventGroup = null;
+      }
+      if (eventPart3Mesh) {
+        try { scene.remove(eventPart3Mesh); } catch (e) {}
+        eventPart3Mesh = null;
+      }
+      eventVfx = [];
+      eventGroup = new THREE.Group();
+      eventGroup.position.set(0, 0, 0);
+      if (EVENT_PARTS.p1) buildEventPart1(eventGroup);
+      if (EVENT_PARTS.p2) buildEventPart2(eventGroup);
+      if (EVENT_PARTS.p3) buildEventPart3(eventGroup);
+      scene.add(eventGroup);
+      eventAnimT = 0;
+      eventPhase = 1;
+      eventMapExpanded = false;
+      if (eventPart2Mesh) eventPart2Mesh.visible = false;
+      if (eventPart3Mesh) eventPart3Mesh.visible = false;
+      if (eventPart1Root) eventPart1Root.visible = true;
+    }
+
+    async function activateEventLive() {
+      if (!canControlEvent()) { showToast('Event admin only'); return; }
+      const n = (EVENT_PARTS.p1?1:0)+(EVENT_PARTS.p2?1:0)+(EVENT_PARTS.p3?1:0);
+      if (n < 3) {
+        showToast('Event incomplete — ' + n + '/3 parts. Send the other parts first.');
+        // Still allow preview of loaded parts for admin testing
+      }
+      const nowTs = Date.now();
+      await fbPut('event/live', {
+        active: true,
+        parts: { ...EVENT_PARTS },
+        by: activeIdentity(),
+        ts: nowTs,
+        complete: n >= 3
+      });
+      eventFinished = false;
+      eventActive = true;
+      lastEventLiveTs = nowTs;
+      buildFullEvent();
+      showToast(n >= 3 ? 'FULL EVENT LIVE!' : 'Event preview live (' + n + '/3 parts)');
+    }
+
+    async function deactivateEventLive() {
+      if (!canControlEvent()) return;
+      await fbPut('event/live', { active: false, ts: Date.now(), stopped: true });
+      eventActive = false;
+      eventFinished = false;
+      lastEventLiveTs = Date.now();
+      if (eventGroup) { scene.remove(eventGroup); eventGroup = null; }
+      eventVfx = [];
+      eventPart1Root = null;
+      eventPart2Mesh = null;
+      eventPart3Mesh = null;
+      showToast('Event stopped');
+    }
+
+    let lastEventLiveTs = 0;
+    // Event NEVER auto-starts on join. Only runs if admin clicked Activate
+    // within the last 40s (so other online players can still see a live run).
+    async function pullEventState() {
+      if (!gameStarted) return;
+      if (eventActive) return;
+      try {
+        const st = await fbGet('event/live');
+        if (!st || !st.active || !st.ts) return;
+        // Ignore old/stuck flags from previous sessions
+        const age = Date.now() - Number(st.ts);
+        if (age > 40000 || age < 0) return;
+        if (st.ts <= lastEventLiveTs) return;
+        lastEventLiveTs = st.ts;
+        eventFinished = false;
+        eventActive = true;
+        buildFullEvent();
+        showToast('Event started by admin');
+      } catch (e) {}
+    }
+    setInterval(() => { try { pullEventState(); } catch (e) {} }, 3000);
+
+    // One-time cleanup of stuck live flag when page loads
+    (async function clearStaleEventOnBoot() {
+      try {
+        const st = await fbGet('event/live');
+        if (st && st.active && st.ts && (Date.now() - Number(st.ts) > 40000)) {
+          await fbPut('event/live', { active: false, ts: Date.now(), cleared: true });
+        }
+      } catch (e) {}
+    })();
+
+    function updateEvent(dt) {
+      if (!eventActive || !eventGroup) return;
+      eventAnimT += dt;
+
+      if (eventPhase === 1) {
+        if (eventPart1Root) eventPart1Root.visible = true;
+        if (eventPart2Mesh) eventPart2Mesh.visible = false;
+        if (eventPart3Mesh) eventPart3Mesh.visible = false;
+        if (eventMeteor) {
+          const t = Math.min(eventAnimT, EVENT_P1_DUR);
+          const u = t / EVENT_P1_DUR;
+          const e = u * u * u * (u * (u * 6 - 15) + 10);
+          eventMeteor.position.y = 22.92 + (0.67 - 22.92) * e;
+          eventMeteor.position.z = -1.15 + (-2.33 + 1.15) * e;
+          eventMeteor.rotation.x += dt * 2;
+          eventMeteor.rotation.z += dt * 1.2;
+        }
+        if (eventSparks) {
+          const u = Math.min(1, eventAnimT / EVENT_P1_DUR);
+          eventSparks.position.y = -1.9 + (0.14 + 1.9) * u;
+        }
+        for (const s of eventVfx) {
+          for (let i = 0; i < s.count; i++) {
+            s.ages[i] += dt;
+            if (s.ages[i] >= s.lifetimes[i]) {
+              s.positions[i*3]=(Math.random()-0.5)*0.3; s.positions[i*3+1]=Math.random()*0.2; s.positions[i*3+2]=(Math.random()-0.5)*0.3;
+              s.ages[i]=0; s.lifetimes[i]=0.6+Math.random()*1.2;
+              s.velocities[i]={ x:(Math.random()-0.5)*0.4*s.speed, y:(0.6+Math.random()*0.8)*s.speed, z:(Math.random()-0.5)*0.4*s.speed };
+              continue;
+            }
+            const v = s.velocities[i];
+            s.positions[i*3]+=v.x*dt; s.positions[i*3+1]+=v.y*dt; s.positions[i*3+2]+=v.z*dt;
+            if (s.style==='up') v.y+=0.15*dt;
+            if (s.style==='out') v.y-=0.8*dt;
+          }
+          s.mesh.geometry.attributes.position.needsUpdate = true;
+        }
+        // Part 1 animation over → hide part 1, start part 2
+        if (eventAnimT >= EVENT_P1_DUR) {
+          if (eventPart1Root) eventPart1Root.visible = false;
+          eventPhase = 2;
+          eventAnimT = 0;
+          if (EVENT_PARTS.p2 && eventPart2Mesh) eventPart2Mesh.visible = true;
+          else if (EVENT_PARTS.p3) { eventPhase = 3; }
+          showToast('Event phase 2');
+        }
+      } else if (eventPhase === 2) {
+        if (eventPart1Root) eventPart1Root.visible = false;
+        if (eventPart3Mesh) eventPart3Mesh.visible = false;
+        if (eventPart2Mesh) {
+          eventPart2Mesh.visible = true;
+          applyEventKfs(eventPart2Mesh, EVENT_P2_KFS, Math.min(eventAnimT, EVENT_P2_DUR));
+        }
+        // Part 2 over → hide part 2, start part 3
+        if (eventAnimT >= EVENT_P2_DUR) {
+          if (eventPart2Mesh) eventPart2Mesh.visible = false;
+          eventPhase = 3;
+          eventAnimT = 0;
+          // White flash hides the character swap
+          setEventFlash(true, 1);
+          try { applyEventFormPermanent(); } catch (e) {}
+          if (EVENT_PARTS.p3 && eventPart3Mesh) {
+            eventPart3Mesh.visible = true;
+            expandMapWide();
+          }
+          showToast('Event phase 3 — shockwave');
+        }
+      } else if (eventPhase === 3) {
+        if (eventPart1Root) eventPart1Root.visible = false;
+        if (eventPart2Mesh) eventPart2Mesh.visible = false;
+        // Flash pulses then fades so players miss the body swap
+        if (eventAnimT < 1.2) {
+          setEventFlash(true, 0.85 + Math.sin(eventAnimT * 20) * 0.15);
+        } else if (eventAnimT < 2.5) {
+          setEventFlash(true, Math.max(0, 1 - (eventAnimT - 1.2) / 1.3));
+        } else {
+          setEventFlash(false);
+        }
+        if (eventPart3Mesh) {
+          eventPart3Mesh.visible = true;
+          applyEventKfs(eventPart3Mesh, EVENT_P3_KFS, Math.min(eventAnimT, EVENT_P3_DUR));
+          eventPart3Mesh.scale.y = 1.6;
+        }
+        if (eventAnimT >= EVENT_P3_DUR) {
+          setEventFlash(false);
+          // DELETE red shockwave completely (no underground leftover)
+          if (eventPart3Mesh) {
+            const victim = eventPart3Mesh;
+            eventPart3Mesh = null;
+            try {
+              if (victim.parent) victim.parent.remove(victim);
+              scene.remove(victim);
+              victim.traverse(c => {
+                if (c.geometry) c.geometry.dispose();
+                if (c.material) {
+                  if (Array.isArray(c.material)) c.material.forEach(m => m.dispose());
+                  else c.material.dispose();
+                }
+              });
+            } catch (e) {}
+          }
+          // Clean sky
+          if (currentMap !== 'moon') {
+            scene.background = new THREE.Color(0x87CEEB);
+            scene.fog = new THREE.Fog(0x87CEEB, 40, 90);
+          }
+          if (!eventFinished) onEventSequenceFinished();
+        }
+      }
+    }
+
+
+    // ===== EVENT BOSS (spawns after full event finishes) + TREE LOD =====
+    const BOSS_Z = 1000;
+    const RENDER_DIST = 15; // blocks (world units ~)
+    let eventBoss = null;
+    let eventBossHp = 500;
+    let eventBossMaxHp = 500;
+    let eventBossAlive = false;
+    let eventBossDefeated = false;
+    let eventFinished = false;
+    let treeChunks = {}; // key "cx,cz" -> { group, x, z }
+    const TREE_CHUNK = 20;
+
+    function buildBossModel() {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color: 0x38571a, roughness: 0.35, metalness: 0.1, emissive: 0x1b5e20, emissiveIntensity: 0.2 });
+      const Box_1 = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat);
+      Box_1.position.set(-0.0053, -0.0512, 0);
+      Box_1.scale.set(0.6794, 1.8636, 0.1479);
+      Box_1.castShadow = true;
+      const Cone_2 = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.2, 16), mat.clone());
+      Cone_2.position.set(-0.0122, 1.4776, 0);
+      Cone_2.rotation.set(-Math.PI, 0, -Math.PI);
+      Cone_2.scale.set(-0.6895, 1, 0.1913);
+      Cone_2.castShadow = true;
+      const Sphere_3 = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), mat.clone());
+      Sphere_3.position.set(0.0175, -1.4264, 0);
+      Sphere_3.scale.set(0.8853, 1, 0.5392);
+      Sphere_3.castShadow = true;
+      const inner = new THREE.Group();
+      inner.add(Box_1); inner.add(Cone_2); inner.add(Sphere_3);
+      inner.position.set(-0.2333, 2.166, 0);
+      g.add(inner);
+      g.scale.set(3.5, 3.5, 3.5);
+      g.userData.hp = eventBossMaxHp;
+      return g;
+    }
+
+    function spawnEventBoss() {
+      if (eventBoss || eventBossDefeated) return;
+      eventBoss = buildBossModel();
+      eventBoss.position.set(0, 0, BOSS_Z);
+      scene.add(eventBoss);
+      eventBossAlive = true;
+      eventBossHp = eventBossMaxHp;
+      showToast('A boss has appeared 1000 blocks out!');
+      // HUD
+      let bar = document.getElementById('bossHpHud');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'bossHpHud';
+        bar.style.cssText = 'display:none;position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:80;background:rgba(0,0,0,0.75);color:#a5d6a7;padding:8px 14px;border-radius:12px;font-weight:900;font-size:13px;border:1px solid #38571a;pointer-events:none;';
+        document.body.appendChild(bar);
+      }
+      bar.style.display = 'block';
+      bar.textContent = 'BOSS HP ' + eventBossHp + '/' + eventBossMaxHp;
+    }
+
+    function defeatEventBoss() {
+      if (!eventBossAlive) return;
+      eventBossAlive = false;
+      eventBossDefeated = true;
+      money += 2e12;
+      updateHUD();
+      saveProgress();
+      showToast('Boss defeated! +$2T');
+      if (eventBoss) {
+        scene.remove(eventBoss);
+        eventBoss = null;
+      }
+      const bar = document.getElementById('bossHpHud');
+      if (bar) bar.style.display = 'none';
+    }
+
+    function updateEventBoss(dt) {
+      if (!eventBossAlive || !eventBoss || !player) return;
+      const dx = player.position.x - eventBoss.position.x;
+      const dz = player.position.z - eventBoss.position.z;
+      const dist = Math.hypot(dx, dz);
+      // Chase if sees player within 80
+      if (dist < 80 && dist > 2.5) {
+        const sp = 6 * dt;
+        eventBoss.position.x += (dx / dist) * sp;
+        eventBoss.position.z += (dz / dist) * sp;
+        eventBoss.lookAt(player.position.x, eventBoss.position.y, player.position.z);
+      }
+      // Contact damage
+      if (dist < 4) {
+        hp = Math.max(0, hp - 25 * dt);
+        updateHUD();
+        if (hp <= 0) {
+          hp = MAX_HP;
+          player.position.set(0, 0, 8);
+          showToast('Boss knocked you back to spawn');
+        }
+      }
+      // Player can hit boss with sword / near + click / space when close
+      const bar = document.getElementById('bossHpHud');
+      if (bar) bar.textContent = 'BOSS HP ' + Math.ceil(eventBossHp) + '/' + eventBossMaxHp + (dist < 100 ? '' : ' (far)');
+      if (dist > 200) { if (bar) bar.style.display = 'none'; }
+      else if (bar) bar.style.display = 'block';
+    }
+
+    // Attack boss when near (reuse duel attack key / net interaction)
+    function tryHitBoss() {
+      if (!eventBossAlive || !eventBoss) return;
+      const dist = player.position.distanceTo(eventBoss.position);
+      if (dist > 6) { showToast('Get closer to the boss'); return; }
+      eventBossHp = Math.max(0, eventBossHp - 28);
+      showToast('Hit boss! -28');
+      if (eventBossHp <= 0) defeatEventBoss();
+    }
+    window.addEventListener('keydown', (e) => {
+      if (!gameStarted || doorRealmActive || duelActive) return;
+      if (e.code === 'KeyF' || e.code === 'Space') tryHitBoss();
+    });
+
+    // When event phase 3 completes → boss
+    function onEventSequenceFinished() {
+      if (eventFinished) return;
+      eventFinished = true;
+      eventActive = false;
+      // Clear live flag so it does NOT auto-restart for everyone
+      try { fbPut('event/live', { active: false, ts: Date.now(), finished: true }); } catch (e) {}
+      if (eventGroup) {
+        try { scene.remove(eventGroup); } catch (e) {}
+        eventGroup = null;
+      }
+      eventPart1Root = null;
+      eventPart2Mesh = null;
+      eventPart3Mesh = null;
+      spawnEventBoss();
+      try { applyEventFormPermanent(); } catch (e) {}
+      showToast('Event complete — Boss at Z 1000');
+    }
+
+    // Tree LOD — generate around player, cull beyond RENDER_DIST chunks
+    function makeSimpleTree() {
+      const g = new THREE.Group();
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.2, 1.4, 6),
+        new THREE.MeshStandardMaterial({ color: 0x3c071b, roughness: 0.9 })
+      );
+      trunk.position.y = 0.7; trunk.castShadow = true; g.add(trunk);
+      const leaf = new THREE.Mesh(
+        new THREE.SphereGeometry(0.7, 8, 6),
+        new THREE.MeshStandardMaterial({ color: 0x38571a, roughness: 0.85 })
+      );
+      leaf.position.y = 1.6; leaf.castShadow = true; g.add(leaf);
+      return g;
+    }
+
+    function updateTreeLod() {
+      if (!player || !gameStarted) return;
+      const px = player.position.x, pz = player.position.z;
+      const cx0 = Math.floor(px / TREE_CHUNK);
+      const cz0 = Math.floor(pz / TREE_CHUNK);
+      const range = Math.ceil(RENDER_DIST / TREE_CHUNK) + 1;
+      const needed = new Set();
+      for (let dx = -range; dx <= range; dx++) {
+        for (let dz = -range; dz <= range; dz++) {
+          const cx = cx0 + dx, cz = cz0 + dz;
+          // skip near spawn path / center already has trees
+          if (Math.abs(cx) < 2 && Math.abs(cz) < 2) continue;
+          const key = cx + ',' + cz;
+          needed.add(key);
+          if (treeChunks[key]) continue;
+          const g = new THREE.Group();
+          // 2-4 trees per chunk
+          const n = 2 + (Math.abs(cx * 17 + cz * 31) % 3);
+          for (let i = 0; i < n; i++) {
+            const t = makeSimpleTree();
+            const ox = (hash01(cx, cz, i) - 0.5) * TREE_CHUNK * 0.8;
+            const oz = (hash01(cx, cz, i + 9) - 0.5) * TREE_CHUNK * 0.8;
+            t.position.set(cx * TREE_CHUNK + ox, 0, cz * TREE_CHUNK + oz);
+            // don't put on red road (x near 0)
+            if (Math.abs(t.position.x) < 2.2) continue;
+            t.scale.setScalar(0.8 + hash01(cx, cz, i + 3) * 0.6);
+            g.add(t);
+          }
+          scene.add(g);
+          treeChunks[key] = { group: g, cx, cz };
+        }
+      }
+      // Cull far chunks
+      Object.keys(treeChunks).forEach(key => {
+        if (needed.has(key)) return;
+        const ch = treeChunks[key];
+        const dx = ch.cx * TREE_CHUNK - px;
+        const dz = ch.cz * TREE_CHUNK - pz;
+        if (Math.hypot(dx, dz) > RENDER_DIST * 2.5) {
+          scene.remove(ch.group);
+          delete treeChunks[key];
+        }
+      });
+    }
+    function hash01(a, b, c) {
+      let h = (a * 374761393 + b * 668265263 + c * 1274126177) | 0;
+      h = (h ^ (h >>> 13)) * 1274126177;
+      return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    }
+
+
+
+    // ===== EPILEPSY WARNING (cakecheeks only) — 2 white flashes then gone =====
+    async function triggerEpilepsyWarning() {
+      if (!isFullAdmin()) { showToast('cakecheeks only'); return; }
+      // Live for all players
+      try {
+        await fbPut('event/epilepsy', { active: true, ts: Date.now(), by: activeIdentity() });
+      } catch (e) {}
+      runEpilepsyFlashLocal();
+    }
+    function runEpilepsyFlashLocal() {
+      let el = document.getElementById('epilepsyFlash');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'epilepsyFlash';
+        el.style.cssText = 'display:none;position:fixed;inset:0;z-index:99998;background:#fff;pointer-events:none;opacity:0;';
+        const msg = document.createElement('div');
+        msg.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#111;font-weight:900;font-size:clamp(18px,5vw,32px);text-align:center;padding:20px;';
+        msg.textContent = '⚠️ EPILEPSY WARNING';
+        el.appendChild(msg);
+        document.body.appendChild(el);
+      }
+      el.style.display = 'block';
+      // Flash 1
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.opacity = '0'; }, 180);
+      setTimeout(() => { el.style.opacity = '1'; }, 400); // Flash 2
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => { el.style.display = 'none'; }, 200);
+      }, 600);
+      showToast('Epilepsy warning shown');
+    }
+    let lastEpilepsyTs = 0;
+    setInterval(async () => {
+      try {
+        const d = await fbGet('event/epilepsy');
+        if (!d || !d.active || !d.ts) return;
+        if (d.ts <= lastEpilepsyTs) return;
+        lastEpilepsyTs = d.ts;
+        runEpilepsyFlashLocal();
+        // clear flag so it doesn't retrigger forever
+        if (isFullAdmin()) {
+          try { await fbPut('event/epilepsy', { active: false, ts: d.ts }); } catch (e) {}
+        }
+      } catch (e) {}
+    }, 2000);
+
+    // ===== MAP STUDIO (cakecheeks22 only) =====
+    let studioActive = false;
+    let studioParts = []; // { mesh, id, shape, code, anim }
+    let studioSelected = null;
+    let studioMode = 'move'; // move | rotate | scale
+    let studioDragging = false;
+    let studioLastX = 0, studioLastY = 0;
+    let studioOrbit = { yaw: 0.6, pitch: 0.4, dist: 40, target: new THREE.Vector3(0, 0, 0) };
+    const STUDIO_RADIUS = 40; // load radius like player render distance idea
+
+    function openMapStudio() {
+      if (!isFullAdmin()) { showToast('cakecheeks22 only'); return; }
+      studioActive = true;
+      const ov = document.getElementById('studioOverlay');
+      if (ov) ov.style.display = 'block';
+      // hide game HUD
+      ['hud','controls','joyWrap','homeScreen'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      document.getElementById('adminOverlay')?.classList.remove('open');
+      studioOrbit.target.set(player ? player.position.x : 0, 0, player ? player.position.z : 0);
+      showToast('Map Studio — place & edit parts');
+      loadStudioPublished();
+    }
+    function closeMapStudio() {
+      studioActive = false;
+      const ov = document.getElementById('studioOverlay');
+      if (ov) ov.style.display = 'none';
+      if (gameStarted) {
+        const hud = document.getElementById('hud');
+        if (hud) hud.style.display = '';
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        if (joyWrap) joyWrap.style.display = isTouch ? 'block' : 'none';
+      }
+      studioSelected = null;
+    }
+
+    function studioMakePart(shape) {
+      let mesh;
+      const mat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.4, metalness: 0.1 });
+      if (shape === 'sphere') mesh = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 12), mat);
+      else if (shape === 'cone') mesh = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.2, 16), mat);
+      else if (shape === 'smooth') {
+        try { mesh = new THREE.Mesh(new RoundedBoxGeometry(1,1,1,4,0.15), mat); }
+        catch (e) { mesh = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat); }
+      } else if (shape === 'tree') {
+        mesh = new THREE.Group();
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.2,1.4,6), new THREE.MeshStandardMaterial({ color: 0x3c071b }));
+        trunk.position.y = 0.7; mesh.add(trunk);
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.7,8,6), new THREE.MeshStandardMaterial({ color: 0x38571a }));
+        leaf.position.y = 1.6; mesh.add(leaf);
+      } else {
+        mesh = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), mat);
+      }
+      if (mesh.isMesh) { mesh.castShadow = true; mesh.receiveShadow = true; }
+      const wrap = mesh.isGroup ? mesh : new THREE.Group();
+      if (!mesh.isGroup) wrap.add(mesh);
+      wrap.userData.studio = true;
+      wrap.userData.shape = shape;
+      wrap.userData.code = '';
+      wrap.userData.id = 'sp_' + Date.now() + '_' + Math.floor(Math.random()*999);
+      return wrap;
+    }
+
+    function studioAddPart() {
+      if (!studioActive || !isFullAdmin()) return;
+      const shape = document.getElementById('studioShape')?.value || 'cube';
+      const action = document.getElementById('studioAction')?.value || 'add';
+      if (action === 'code' && studioSelected) {
+        studioSelected.userData.code = document.getElementById('studioCode')?.value || '';
+        showToast('Code saved on part');
+        return;
+      }
+      if (action === 'animate' && studioSelected) {
+        studioSelected.userData.anim = true;
+        showToast('Part will idle-animate');
+        return;
+      }
+      const p = studioMakePart(shape);
+      const t = studioOrbit.target;
+      p.position.set(t.x + Math.sin(studioOrbit.yaw) * 3, 0.5, t.z + Math.cos(studioOrbit.yaw) * 3);
+      scene.add(p);
+      studioParts.push(p);
+      studioSelected = p;
+      showToast('Added ' + shape);
+    }
+
+    function studioDeleteSelected() {
+      if (!studioSelected) return;
+      scene.remove(studioSelected);
+      studioParts = studioParts.filter(p => p !== studioSelected);
+      studioSelected = null;
+      showToast('Deleted');
+    }
+
+    function studioSelectAt(clientX, clientY) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mx = ((clientX - rect.left) / rect.width) * 2 - 1;
+      const my = -((clientY - rect.top) / rect.height) * 2 + 1;
+      const ray = new THREE.Raycaster();
+      ray.setFromCamera({ x: mx, y: my }, camera);
+      const hits = ray.intersectObjects(studioParts, true);
+      if (!hits.length) { studioSelected = null; return; }
+      let o = hits[0].object;
+      while (o && !o.userData.studio) o = o.parent;
+      studioSelected = o || null;
+      if (studioSelected) {
+        const code = document.getElementById('studioCode');
+        if (code) code.value = studioSelected.userData.code || '';
+        showToast('Selected ' + (studioSelected.userData.shape || 'part'));
+      }
+    }
+
+    function updateStudioCamera() {
+      if (!studioActive) return;
+      const o = studioOrbit;
+      camera.position.set(
+        o.target.x + Math.sin(o.yaw) * Math.cos(o.pitch) * o.dist,
+        o.target.y + Math.sin(o.pitch) * o.dist,
+        o.target.z + Math.cos(o.yaw) * Math.cos(o.pitch) * o.dist
+      );
+      camera.lookAt(o.target);
+      // radius visibility for studio parts
+      studioParts.forEach(p => {
+        const d = p.position.distanceTo(o.target);
+        p.visible = d < STUDIO_RADIUS * 2;
+      });
+      // highlight selected
+      studioParts.forEach(p => {
+        p.traverse(c => {
+          if (c.isMesh && c.material && c.material.emissive) {
+            c.material.emissive.setHex(p === studioSelected ? 0x224422 : 0x000000);
+          }
+        });
+      });
+      // animate flagged
+      const t = performance.now() * 0.001;
+      studioParts.forEach(p => {
+        if (p.userData.anim) {
+          p.rotation.y = t;
+          p.position.y = 0.5 + Math.sin(t * 2) * 0.15;
+        }
+      });
+    }
+
+    async function studioPublish(isPublic) {
+      if (!isFullAdmin()) return;
+      const payload = {
+        by: activeIdentity(),
+        ts: Date.now(),
+        public: !!isPublic,
+        parts: studioParts.map(p => ({
+          id: p.userData.id,
+          shape: p.userData.shape,
+          code: p.userData.code || '',
+          anim: !!p.userData.anim,
+          pos: [p.position.x, p.position.y, p.position.z],
+          rot: [p.rotation.x, p.rotation.y, p.rotation.z],
+          scale: [p.scale.x, p.scale.y, p.scale.z]
+        }))
+      };
+      if (isPublic) {
+        const key = 'pub_' + Date.now();
+        await fbPut('studio/public/' + key, payload);
+        showToast('Published PUBLIC for everyone');
+      } else {
+        await fbPut('studio/private/' + safeId(activeIdentity()), payload);
+        showToast('Published PRIVATE (only you)');
+      }
+    }
+
+    async function loadStudioPublished() {
+      try {
+        const priv = await fbGet('studio/private/' + safeId(activeIdentity()));
+        if (priv && priv.parts) priv.parts.forEach(spawnStudioFromData);
+        const pubs = await fbGet('studio/public');
+        if (pubs) Object.values(pubs).forEach(pack => {
+          if (pack && pack.parts) pack.parts.forEach(spawnStudioFromData);
+        });
+      } catch (e) {}
+    }
+    function spawnStudioFromData(d) {
+      if (!d || studioParts.some(p => p.userData.id === d.id)) return;
+      const p = studioMakePart(d.shape || 'cube');
+      p.userData.id = d.id || p.userData.id;
+      p.userData.code = d.code || '';
+      p.userData.anim = !!d.anim;
+      if (d.pos) p.position.set(d.pos[0], d.pos[1], d.pos[2]);
+      if (d.rot) p.rotation.set(d.rot[0], d.rot[1], d.rot[2]);
+      if (d.scale) p.scale.set(d.scale[0], d.scale[1], d.scale[2]);
+      scene.add(p);
+      studioParts.push(p);
+    }
+
+    // Also load public parts for normal players
+    async function loadPublicStudioForPlayers() {
+      if (studioActive) return;
+      try {
+        const pubs = await fbGet('studio/public');
+        if (!pubs) return;
+        Object.values(pubs).forEach(pack => {
+          if (pack && pack.parts) pack.parts.forEach(d => {
+            if (studioParts.some(p => p.userData.id === d.id)) return;
+            const p = studioMakePart(d.shape || 'cube');
+            p.userData.id = d.id;
+            p.userData.anim = !!d.anim;
+            if (d.pos) p.position.set(d.pos[0], d.pos[1], d.pos[2]);
+            if (d.rot) p.rotation.set(d.rot[0], d.rot[1], d.rot[2]);
+            if (d.scale) p.scale.set(d.scale[0], d.scale[1], d.scale[2]);
+            scene.add(p);
+            studioParts.push(p);
+          });
+        });
+      } catch (e) {}
+    }
+    setInterval(() => { if (gameStarted) try { loadPublicStudioForPlayers(); } catch(e) {} }, 8000);
 
     // ===== TRILLIONAIRE PORTAL (cakecheeks22 only spawns) =====
     let localPortal = null;
@@ -3486,7 +4527,8 @@
       for (const c of colliders) {
         if (nx+playerRadius > c.minX && nx-playerRadius < c.maxX && nz+playerRadius > c.minZ && nz-playerRadius < c.maxZ) return false;
       }
-      return Math.abs(nx) <= 50 && Math.abs(nz) <= 52;
+      // No world border — open map (trees LOD handles far areas)
+      return true;
     }
     const camOffset = new THREE.Vector3(0, 16, 18);
     let camYaw = 0; // orbit angle around player
@@ -5113,6 +6155,14 @@
     function isFullAdmin() {
       return currentUser && currentUser.username === 'cakecheeks22';
     }
+    // Temporary event-test admin (delete account when testing is done)
+    function isEventTestAdmin() {
+      return currentUser && currentUser.username === 'eventtest1';
+    }
+    function canControlEvent() {
+      // Only cakecheeks22 can animate / activate the event
+      return isFullAdmin();
+    }
     function isModAdmin() {
       if (!currentUser) return false;
       if (isFullAdmin()) return true;
@@ -5120,7 +6170,7 @@
       if (typeof powersMaxed === 'function' && powersMaxed()) return true;
       return isModRank(currentUser.username);
     }
-    function canOpenAdmin() { return isModAdmin(); }
+    function canOpenAdmin() { return isModAdmin() || isEventTestAdmin(); }
 
     function fillGiftPetSelect() {
       const sel = document.getElementById('giftPetSelect');
@@ -5199,9 +6249,19 @@
       ov.style.zIndex = '140';
       const header = document.querySelector('#adminHeader h2');
       const full = isFullAdmin();
-      if (header) header.textContent = full ? '⚡ Live Admin — cakecheeks22' : '⚡ Mod Admin';
+      const eventAdm = typeof canControlEvent === 'function' && canControlEvent();
+      if (header) {
+        if (full) header.textContent = '⚡ Live Admin — cakecheeks22';
+        else if (isEventTestAdmin()) header.textContent = '☄️ Event Test Admin — eventtest1';
+        else header.textContent = '⚡ Mod Admin';
+      }
       const tools = document.getElementById('fullAdminOnlyTools');
       if (tools) tools.style.display = full ? 'block' : 'none';
+      const evSec = document.getElementById('eventControlSection');
+      if (evSec) evSec.style.display = eventAdm ? 'block' : 'none';
+      // eventtest1: hide money button etc that need full admin
+      const moneyBtn = document.getElementById('adminMoneyBtn');
+      if (moneyBtn) moneyBtn.style.display = full ? '' : 'none';
       // hide timer section for non-full — countdown is inside admin already; fullAdminOnlyTools wraps ban/gift/mod
       const cdBlock = document.getElementById('cdStartBtn');
       if (cdBlock && cdBlock.parentElement && cdBlock.parentElement.parentElement) {
@@ -5289,6 +6349,78 @@
     document.getElementById('adminOverlay')?.addEventListener('click', e => {
       if (e.target.id === 'adminOverlay') document.getElementById('adminOverlay').classList.remove('open');
     });
+    
+    document.getElementById('epilepsyWarnBtn')?.addEventListener('click', () => triggerEpilepsyWarning());
+    document.getElementById('studioPreviewBtn')?.addEventListener('click', () => openMapStudio());
+    document.getElementById('studioExit')?.addEventListener('click', () => closeMapStudio());
+    document.getElementById('studioAddBtn')?.addEventListener('click', () => studioAddPart());
+    document.getElementById('studioDelBtn')?.addEventListener('click', () => studioDeleteSelected());
+    document.getElementById('studioPubPrivate')?.addEventListener('click', () => studioPublish(false));
+    document.getElementById('studioPubPublic')?.addEventListener('click', () => studioPublish(true));
+    document.querySelectorAll('.studioModeBtn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        studioMode = btn.getAttribute('data-mode') || 'move';
+        document.querySelectorAll('.studioModeBtn').forEach(b => b.style.background = '#334155');
+        btn.style.background = '#0ea5e9';
+      });
+    });
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      if (!studioActive) return;
+      studioDragging = true;
+      studioLastX = e.clientX; studioLastY = e.clientY;
+      if (!e.shiftKey) studioSelectAt(e.clientX, e.clientY);
+    });
+    renderer.domElement.addEventListener('pointermove', (e) => {
+      if (!studioActive || !studioDragging) return;
+      const dx = e.clientX - studioLastX;
+      const dy = e.clientY - studioLastY;
+      studioLastX = e.clientX; studioLastY = e.clientY;
+      if (studioSelected && (e.shiftKey || studioMode !== 'orbit')) {
+        if (studioMode === 'move') {
+          studioSelected.position.x += dx * 0.05;
+          studioSelected.position.z += dy * 0.05;
+        } else if (studioMode === 'rotate') {
+          studioSelected.rotation.y += dx * 0.02;
+          studioSelected.rotation.x += dy * 0.02;
+        } else if (studioMode === 'scale') {
+          const s = 1 + dy * -0.01;
+          studioSelected.scale.multiplyScalar(Math.max(0.1, Math.min(2, s)));
+        }
+      } else {
+        studioOrbit.yaw -= dx * 0.01;
+        studioOrbit.pitch = Math.max(0.05, Math.min(1.4, studioOrbit.pitch + dy * 0.01));
+      }
+    });
+    renderer.domElement.addEventListener('pointerup', () => { studioDragging = false; });
+    renderer.domElement.addEventListener('wheel', (e) => {
+      if (!studioActive) return;
+      studioOrbit.dist = Math.max(5, Math.min(120, studioOrbit.dist + e.deltaY * 0.04));
+    }, { passive: true });
+
+    document.getElementById('eventActivateBtn')?.addEventListener('click', () => activateEventLive());
+    document.getElementById('eventViewBtn')?.addEventListener('click', async () => {
+      if (!canControlEvent()) { showToast('Event admin only'); return; }
+      await activateEventLive();
+      showToast('Previewing event…');
+      // After sequence ~11s ask keep/delete staging account note
+      setTimeout(() => {
+        const del = confirm('Event preview finished.\n\nDelete this admin session data for a clean future update?\n\nOK = clear local event cache & sign out\nCancel = keep for more event updates');
+        if (del) {
+          try {
+            localStorage.removeItem('ppt_event_preview');
+            Object.keys(localStorage).forEach(k => {
+              if (k.includes('event')) localStorage.removeItem(k);
+            });
+          } catch (e) {}
+          try { signOut(); } catch (e) {}
+          showToast('Signed out — event cache cleared');
+        } else {
+          showToast('Kept — ready for part 4 / updates');
+        }
+      }, 12000);
+    });
+    document.getElementById('eventDeactivateBtn')?.addEventListener('click', () => deactivateEventLive());
+    setTimeout(updateEventPartsUI, 500);
     document.getElementById('portalPrivateBtn')?.addEventListener('click', () => adminSpawnPortalPrivate());
     document.getElementById('portalGlobalBtn')?.addEventListener('click', () => adminSpawnPortalGlobal());
     document.getElementById('portalRandomBtn')?.addEventListener('click', () => adminSpawnPortalRandomServers());
@@ -5376,7 +6508,8 @@
 
     async function exitToHomeFull() {
       try {
-        if (duelActive) {
+        if (studioActive) { /* studio cam handled in updateStudioCamera */ }
+      else if (duelActive) {
           duelActive = false;
           if (duelPollTimer) { clearInterval(duelPollTimer); duelPollTimer = null; }
           clearDuelArena();
@@ -5957,7 +7090,8 @@
       // Footsteps when moving
       try {
         let moving = false;
-        if (duelActive) {
+        if (studioActive) { /* studio cam handled in updateStudioCamera */ }
+      else if (duelActive) {
           moving = Math.hypot(duelVel.x, duelVel.z) > 0.4 && Date.now() >= duelFrozenUntil;
         } else {
           moving = !!(keys['KeyW']||keys['KeyA']||keys['KeyS']||keys['KeyD']||keys['ArrowUp']||keys['ArrowDown']||keys['ArrowLeft']||keys['ArrowRight']);
@@ -6102,7 +7236,8 @@
         else if (canMove(player.position.x, player.position.z+mz)) player.position.z += mz;
         player.rotation.y = Math.atan2(wx, wz);
       }
-            if (duelActive) {
+            if (studioActive) { /* studio cam handled in updateStudioCamera */ }
+      else if (duelActive) {
         // Smooth FPS duel movement
         const frozen = Date.now() < duelFrozenUntil;
         const cdEl = document.getElementById('duelCountdown');
@@ -6175,6 +7310,10 @@
       try { tickRemotePets(dt); } catch(e) {}
       try { updateDoorRealm(dt); } catch(e) {}
       try { updatePortal(dt); } catch(e) {}
+      try { updateEvent(dt); } catch(e) {}
+      try { updateEventBoss(dt); } catch(e) {}
+      try { updateTreeLod(); } catch(e) {}
+      try { if (studioActive) updateStudioCamera(); } catch(e) {}
       renderer.render(scene, camera);
     }
     animate();
